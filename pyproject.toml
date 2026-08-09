@@ -1,0 +1,28 @@
+[project]
+name = "transparent-dep-repair"
+version = "0.1.0"
+description = "AI-Driven Transparent Repair of Software Dependency Configurations (MSc thesis) — Phase 1: run & capture"
+requires-python = ">=3.10"
+authors = [{ name = "Muhammad Ibtisam Tanveer" }]
+
+[project.optional-dependencies]
+# Not needed to use runner.py itself (stdlib only). Only for exercising
+# broken_examples/ during development, see broken_examples/MANIFEST.md.
+dev = [
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "scipy",
+    "imageio",
+    "pyyaml",
+]
+
+[project.scripts]
+repair-tool-run = "runner:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["runner"]
