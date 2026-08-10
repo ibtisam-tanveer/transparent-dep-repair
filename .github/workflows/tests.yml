@@ -16,4 +16,4 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
-      - run: python -m unittest tests.test_runner -v
+      - run: python -m unittest tests.test_runner tests.test_diagnose -v
