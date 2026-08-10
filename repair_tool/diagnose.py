@@ -12,7 +12,7 @@ import re
 import sys
 from dataclasses import dataclass
 
-from runner import RunResult, run_project
+from .runner import RunResult, run_project
 
 # The line that actually names the exception, e.g.:
 #   AttributeError: module 'numpy' has no attribute 'float'

@@ -1,7 +1,7 @@
 [project]
 name = "transparent-dep-repair"
 version = "0.1.0"
-description = "AI-Driven Transparent Repair of Software Dependency Configurations (MSc thesis) — Phase 1-2: run, capture, diagnose"
+description = "AI-Driven Transparent Repair of Software Dependency Configurations (MSc thesis) — Phase 1-3: run, capture, diagnose, propose/apply/verify"
 requires-python = ">=3.10"
 authors = [{ name = "Muhammad Ibtisam Tanveer" }]
 
@@ -18,12 +18,13 @@ dev = [
 ]
 
 [project.scripts]
-repair-tool-run = "runner:main"
-repair-tool-diagnose = "diagnose:main"
+repair-tool-run = "repair_tool.runner:main"
+repair-tool-diagnose = "repair_tool.diagnose:main"
+repair-tool-fix = "repair_tool.loop:main"
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["runner", "diagnose"]
+packages = ["repair_tool"]

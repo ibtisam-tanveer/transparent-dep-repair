@@ -24,8 +24,12 @@ class RunResult:
     stderr: str
 
 
-def run_project(path: str, timeout: int = 60) -> RunResult:
+def run_project(path: str, timeout: int = 60, python_exe: str | None = None) -> RunResult:
     """Run the Python file at `path` in a subprocess and capture the result.
+
+    `python_exe` selects the interpreter to run it with (e.g. an isolated
+    venv's python from Phase 3's venv_manager); defaults to the current
+    interpreter, so Phase 1/2 callers are unaffected.
 
     Never raises: a missing file, a timeout, or a crashing target all come
     back as a failed RunResult instead of propagating an exception.
@@ -38,9 +42,11 @@ def run_project(path: str, timeout: int = 60) -> RunResult:
             stderr=f"FileNotFoundError: no such file: {path!r}",
         )
 
+    executable = python_exe or sys.executable
+
     try:
         completed = subprocess.run(
-            [sys.executable, path],
+            [executable, path],
             capture_output=True,
             text=True,
             encoding="utf-8",

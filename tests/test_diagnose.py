@@ -4,8 +4,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from diagnose import Diagnosis, diagnose, diagnose_result
-from runner import RunResult, run_project
+from repair_tool.diagnose import Diagnosis, diagnose, diagnose_result
+from repair_tool.runner import RunResult, run_project
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXAMPLES = os.path.join(ROOT, "broken_examples")
