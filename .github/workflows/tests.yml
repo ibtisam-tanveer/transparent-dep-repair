@@ -16,4 +16,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
-      - run: python -m unittest tests.test_runner tests.test_diagnose -v
+      - run: python -m unittest tests.test_runner tests.test_diagnose tests.test_pypi tests.test_repair tests.test_apply tests.test_loop -v
+        env:
+          # Keep CI fast and non-flaky: skip the test that hits real PyPI
+          # and does a real install. See PHASE3_ADDENDUM.md #3.
+          SKIP_NETWORK_TESTS: "1"
