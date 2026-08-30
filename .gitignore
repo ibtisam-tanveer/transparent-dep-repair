@@ -7,6 +7,9 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .DS_Store
+*.sqlite
+*.sqlite3
+computational-reproducibility-pmc/
 *.egg-info/
 build/
 dist/

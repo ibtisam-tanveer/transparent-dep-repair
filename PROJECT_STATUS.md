@@ -5,7 +5,8 @@ This is a snapshot of what's actually built right now, meant to be updated as
 phases land. For the full reasoning behind each phase's decisions, see
 [PHASE1_SUMMARY.md](PHASE1_SUMMARY.md), [PHASE2_SUMMARY.md](PHASE2_SUMMARY.md),
 [PHASE3_ADDENDUM.md](PHASE3_ADDENDUM.md) (Phase 3 design decisions, made
-before implementation), and [PHASE3_SUMMARY.md](PHASE3_SUMMARY.md).
+before implementation), [PHASE3_SUMMARY.md](PHASE3_SUMMARY.md), and
+[DATASET_SUMMARY.md](DATASET_SUMMARY.md) (the independent data track below).
 
 ## The tool's target loop
 
@@ -21,10 +22,23 @@ run the project -> read the error -> propose a fix -> apply it -> re-run to veri
 |---|---|---|---|
 | 1 | `repair_tool/runner.py` | done, committed+pushed (`4197885`) | Runs a target `.py` file as a subprocess, returns `RunResult(ok, returncode, stdout, stderr)`. Never crashes on a broken target, missing file, or timeout. |
 | 2 | `repair_tool/diagnose.py` | done, committed+pushed (`1d7f38c`) | Classifies a `RunResult`'s `stderr` into a `Diagnosis(kind, module, package, symbol, detail)` — 5 categories: `missing_module`, `import_name`, `module_attribute_removed`, `object_attribute_error`, `unknown`. Pure classification, no fixing. |
-| 3 | `repair_tool/{pypi,venv_manager,repair,apply,loop}.py` | **done**; Step 0 restructure committed (`172303c`), new-feature commit pending | Propose + apply a fix for the one safe deterministic case (missing package), inside an isolated venv, then re-verify by re-running. Rule-based only, no LLM. |
+| 3 | `repair_tool/{pypi,venv_manager,repair,apply,loop}.py` | **done, committed+pushed** (`172303c` restructure, `cb4c515` features) | Propose + apply a fix for the one safe deterministic case (missing package), inside an isolated venv, then re-verify by re-running. Rule-based only, no LLM. |
 | 4 | — | not started | Verify a fix against authoritative package metadata, not just re-running. |
 | 5 | — | not started | LLM-driven repair proposals + retrieval; handles the removed-API / `unknown` diagnosis buckets Phase 3 deliberately leaves alone. |
 | — | — | not started | Full transparency report (reason, source/provenance, alternatives, verification, confidence) — the thesis's core contribution (Vision Doc §7). Phase 3 seeds the first real pieces of this (`Proposal`/`Attempt` fields) so it isn't retrofitted later. |
+
+## Data track (independent of the phases above — see `DATASET_SUMMARY.md`)
+
+| Task | Status | What it does |
+|---|---|---|
+| Draft dependency-failure dataset from GigaScience `db.sqlite` | **done (draft)**, not yet committed | Read-only exploration + extraction: `dataset/explore_db.py`, `dataset/extract_dependency_failures.py` → `dataset/dependency_failures.csv` (1,362 rows, 311 repos). Filter matches the original authors' own definition. |
+
+**Significant finding**: the `db.sqlite` on hand exactly matches the paper's
+**2021 initial run** (9,625 notebooks, 1,419 articles) — not the **2023
+rerun** (27,271 notebooks) the task brief's "~27,000" figure referred to.
+Confirmed directly against the published paper, not guessed. Open question
+for the supervisor: use the 2021 run as-is, or redo against a 2023-rerun
+database if one exists.
 
 ## Verification
 
@@ -34,24 +48,27 @@ run the project -> read the error -> propose a fix -> apply it -> re-run to veri
 - An emergent, unplanned validation: because Phase 3's venvs start empty, `02`/`04` surface as `missing_module` on their first run (numpy/sklearn not installed yet) before revealing the real unhandled error on the second — exactly the layered-error behavior `broken_examples/MANIFEST.md` predicted, confirmed working without special-casing it.
 - Every "Required behaviour" assertion and "Suggested manual check" from `PHASE1_TASK.md`, `PHASE2_TASK.md`, and `PHASE3_TASK.md` passes.
 - CI (`.github/workflows/tests.yml`) runs all suites on Python 3.10 and 3.12 on every push, with `SKIP_NETWORK_TESTS=1` so it stays fast and non-flaky.
+- Dataset extraction verified read-only at the driver level (a direct write attempt against `db.sqlite` fails with `sqlite3.OperationalError`, not just relying on the `mode=ro` flag by convention).
 
 ## Infrastructure
 
-- Git repo: `github.com/ibtisam-tanveer/transparent-dep-repair`. **Phases 1 and 2 are committed and pushed** (`4197885`, `1d7f38c`). **Phase 3's Step 0 restructure is committed** (`172303c`, local — not yet pushed); the new-feature work (pypi/venv_manager/repair/apply/loop + tests) is implemented and verified but not yet committed.
+- Git repo: `github.com/ibtisam-tanveer/transparent-dep-repair`. **Phases 1, 2, and 3 are all committed and pushed** (`4197885`, `1d7f38c`, `172303c` + `cb4c515`). The dataset track (`dataset/`, `DATASET_SUMMARY.md`, a `.gitignore` fix) is implemented and verified but not yet committed.
 - Packaging via `pyproject.toml`: `pip install -e ".[dev]"` sets up the dev environment and registers `repair-tool-run`, `repair-tool-diagnose`, `repair-tool-fix` console scripts.
-- Code now lives in `repair_tool/` (moved from flat root modules as Phase 3's Step 0) — anticipated back in the Phase 1 README note ("once a third module needs a home, that's the point to introduce a package folder"), and that moment arrived exactly on schedule with `pypi.py`.
-- `.repair_venvs/` (per-target isolated venvs Phase 3 creates) is gitignored.
+- Code lives in `repair_tool/` (moved from flat root modules as Phase 3's Step 0) — anticipated back in the Phase 1 README note ("once a third module needs a home, that's the point to introduce a package folder"), and that moment arrived exactly on schedule with `pypi.py`.
+- `.repair_venvs/` (per-target isolated venvs Phase 3 creates) and `*.sqlite`/`computational-reproducibility-pmc/` (the 371MB dataset source, found untracked and unignored — fixed) are both gitignored.
 
 ## Known limitations (expected at this stage, not bugs)
 
 - Only validated against the 8-file controlled set + hand-written edge cases — not yet run against a real benchmark (EnvBench, GigaScience notebooks).
 - No UI. Deliberately deferred until there's a fix + transparency report worth visualizing, or until the RQ4 human-study design (Vision Doc §9) calls for one.
-- **Open decision, not yet resolved**: which real benchmark/dataset to evaluate against — Vision Doc §8 explicitly flags this as something to "finalise with your supervisor."
+- **Open decisions, not yet resolved**: which real benchmark/dataset to evaluate against (Vision Doc §8), and which GigaScience run (2021 vs 2023) to use for the draft dataset above — both need the supervisor's input.
 - No `.ipynb` notebook handling yet — only plain `.py` files (per all three task specs so far, out of scope).
 - Phase 3 only auto-fixes `missing_module` with a resolvable PyPI name — by design (see `PHASE3_TASK.md`'s "Scope" section), not a gap.
+- The dataset filter excludes 24 `AttributeError` + 24 `CalledProcessError` rows as ambiguous, rather than guessing — flagged for the supervisor, not resolved.
 
 ## Suggested next step
 
-Commit the Phase 3 new-feature work (separate from the already-committed
-Step 0 restructure, per the task doc's own instruction), then request
-`PHASE4_TASK.md` before starting metadata-based verification work.
+Send the progress update to the supervisor (drafted, pending her replies on
+4 open questions: which GigaScience run, filter completeness, benchmark
+choice, RQ4 study design). Commit the dataset track. Request `PHASE4_TASK.md`
+before starting metadata-based verification work.
