@@ -31,7 +31,7 @@ run the project -> read the error -> propose a fix -> apply it -> re-run to veri
 
 | Task | Status | What it does |
 |---|---|---|
-| Draft dependency-failure dataset from GigaScience `db.sqlite` | **done (draft)**, not yet committed | Read-only exploration + extraction: `dataset/explore_db.py`, `dataset/extract_dependency_failures.py` → `dataset/dependency_failures.csv` (1,362 rows, 311 repos). Filter matches the original authors' own definition. |
+| Draft dependency-failure dataset from GigaScience `db.sqlite` | **done (draft), committed+pushed** (`5cf3cbd`) | Read-only exploration + extraction: `dataset/explore_db.py`, `dataset/extract_dependency_failures.py` → `dataset/dependency_failures.csv` (1,362 rows, 311 repos). Filter matches the original authors' own definition. |
 
 **Significant finding**: the `db.sqlite` on hand exactly matches the paper's
 **2021 initial run** (9,625 notebooks, 1,419 articles) — not the **2023
@@ -52,7 +52,7 @@ database if one exists.
 
 ## Infrastructure
 
-- Git repo: `github.com/ibtisam-tanveer/transparent-dep-repair`. **Phases 1, 2, and 3 are all committed and pushed** (`4197885`, `1d7f38c`, `172303c` + `cb4c515`). The dataset track (`dataset/`, `DATASET_SUMMARY.md`, a `.gitignore` fix) is implemented and verified but not yet committed.
+- Git repo: `github.com/ibtisam-tanveer/transparent-dep-repair`. **Everything is committed and pushed** — Phases 1-3 (`4197885`, `1d7f38c`, `172303c` + `cb4c515`) and the dataset track (`5cf3cbd`). Working tree clean.
 - Packaging via `pyproject.toml`: `pip install -e ".[dev]"` sets up the dev environment and registers `repair-tool-run`, `repair-tool-diagnose`, `repair-tool-fix` console scripts.
 - Code lives in `repair_tool/` (moved from flat root modules as Phase 3's Step 0) — anticipated back in the Phase 1 README note ("once a third module needs a home, that's the point to introduce a package folder"), and that moment arrived exactly on schedule with `pypi.py`.
 - `.repair_venvs/` (per-target isolated venvs Phase 3 creates) and `*.sqlite`/`computational-reproducibility-pmc/` (the 371MB dataset source, found untracked and unignored — fixed) are both gitignored.
@@ -68,7 +68,9 @@ database if one exists.
 
 ## Suggested next step
 
-Send the progress update to the supervisor (drafted, pending her replies on
-4 open questions: which GigaScience run, filter completeness, benchmark
-choice, RQ4 study design). Commit the dataset track. Request `PHASE4_TASK.md`
-before starting metadata-based verification work.
+Progress update emailed to the supervisor (2026-08-20) — awaiting her reply
+on 4 open questions: which GigaScience run to use, filter completeness
+(the excluded `AttributeError`/`CalledProcessError` rows), benchmark
+choice, RQ4 study design. Nothing to build until she responds, other than
+requesting `PHASE4_TASK.md` if/when she confirms it's time to move on to
+metadata-based verification.

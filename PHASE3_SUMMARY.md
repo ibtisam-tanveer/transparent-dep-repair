@@ -1,7 +1,8 @@
 # Phase 3 Summary — Propose and apply a fix, in isolation, then verify
 
-Status: **done**. Step 0 (restructure) committed separately (`172303c`), as
-`PHASE3_TASK.md` requires; the new-feature commit follows this summary.
+Status: **done**, pushed to `github.com/ibtisam-tanveer/transparent-dep-repair`.
+Step 0 (restructure) committed separately (`172303c`), as `PHASE3_TASK.md`
+requires; the new-feature work followed in its own commit (`cb4c515`).
 See `PHASE3_ADDENDUM.md` for design decisions made *before* implementation
 (install timeout, confidence/source mapping, CI network-test policy) — this
 document covers what actually happened building against them.
