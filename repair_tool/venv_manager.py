@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import sys
 import venv
 
@@ -26,6 +27,20 @@ def get_venv_python(target_path: str) -> str:
         venv.EnvBuilder(with_pip=True, clear=True).create(venv_dir)
 
     return python_exe
+
+
+def get_workspace_copy(target_path: str) -> str:
+    """Return the path to target_path's persistent working copy, creating it
+    from the original the first time. Phase 5's code edits (and every run
+    after the first) operate on this copy — the original input file passed
+    to repair() is read exactly once, right here, and never touched again.
+    """
+    workspace_dir = os.path.join(_venv_dir_for(target_path), "workspace")
+    os.makedirs(workspace_dir, exist_ok=True)
+    copy_path = os.path.join(workspace_dir, os.path.basename(target_path))
+    if not os.path.isfile(copy_path):
+        shutil.copyfile(target_path, copy_path)
+    return copy_path
 
 
 def _venv_dir_for(target_path: str) -> str:

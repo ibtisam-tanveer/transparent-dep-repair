@@ -16,8 +16,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
-      - run: python -m unittest tests.test_runner tests.test_diagnose tests.test_pypi tests.test_repair tests.test_apply tests.test_loop -v
+      - run: python -m unittest tests.test_runner tests.test_diagnose tests.test_pypi tests.test_repair tests.test_apply tests.test_llm tests.test_loop -v
         env:
-          # Keep CI fast and non-flaky: skip the test that hits real PyPI
-          # and does a real install. See PHASE3_ADDENDUM.md #3.
+          # Keep CI fast, non-flaky, and free of real API cost: skip tests
+          # that hit real PyPI/OpenAI or do a real install/LLM call.
+          # See PHASE3_ADDENDUM.md #3. No OPENAI_API_KEY is set in CI either
+          # way, so the guarded LLM tests would skip on that alone.
           SKIP_NETWORK_TESTS: "1"

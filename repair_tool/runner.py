@@ -58,6 +58,10 @@ def run_project(path: str, timeout: int = 60, python_exe: str | None = None) -> 
         stderr = exc.stderr or ""
         stderr += f"\nTimeoutExpired: process exceeded {timeout}s and was killed"
         return RunResult(ok=False, returncode=-1, stdout=stdout, stderr=stderr)
+    except OSError as exc:
+        # e.g. `executable` doesn't exist or isn't runnable -- same
+        # never-raise contract as the timeout/missing-file cases above.
+        return RunResult(ok=False, returncode=-1, stdout="", stderr=f"OSError: could not run {executable!r}: {exc}")
 
     return RunResult(
         ok=completed.returncode == 0,

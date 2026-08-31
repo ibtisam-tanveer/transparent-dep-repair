@@ -157,23 +157,62 @@ layered-error behavior `broken_examples/MANIFEST.md` describes.
 the first real pieces of the full transparency report (Vision Doc §7),
 captured from the start so later phases don't need to reconstruct this data.
 
+## Phase 5 — LLM-based repair of the hard cases (code vs. environment)
+
+**The thesis's core contribution.** Phase 3 only fixes a missing package;
+everything else (`module_attribute_removed`, `object_attribute_error`,
+`import_name`, `unknown`) used to stop at "not handled yet." Phase 5 makes
+those fixable — without picking a side in the unsettled code-vs-environment
+debate (Vision Doc ref [4]): for each hard case it asks an LLM for **two**
+candidate fixes in one call (a code edit and an environment/version pin),
+**applies and verifies each by actually re-running the project**, keeps
+whichever one works, and records the other as a rejected alternative. See
+`PHASE5_TASK.md` for the full spec and `PHASE5_SUMMARY.md` for what
+actually happened building it (including a real LLM JSON-escaping bug found
+and fixed, and one example that's honestly "not fixed" for real reasons).
+
+| Module | Responsibility |
+|---|---|
+| `repair_tool/llm.py` | `request_fix(diagnosis, code, error_text)` — the only place `openai`/`OPENAI_API_KEY` are touched; strict JSON via OpenAI's `response_format=json_object`, defensive parsing, never raises |
+| `repair_tool/repair.py` | `propose_hard_case(...)` — asks the LLM once, returns both candidates; `STRATEGY_ORDER` decides which to try first per diagnosis kind |
+| `repair_tool/apply.py` | `apply_code_edit(edits, workspace_path)` — find/replace edits on a working copy, never the original; a non-matching `find` is a clean failure, not a crash |
+| `repair_tool/loop.py` | applies + verifies each candidate in order, picks the winner, reverts a failed code edit before trying the other, records `strategy_won` + `alternatives` |
+
+```python
+from repair_tool.loop import repair
+
+result = repair("broken_examples/02_numpy_float.py")
+assert result.fixed is True
+assert result.attempts[-1].proposal.strategy_won in ("code", "environment")
+assert result.attempts[-1].proposal.alternatives   # the rejected candidate, recorded
+```
+
+**Verification is always by re-running** — a candidate only counts if
+`RunResult.ok` afterward, never the model's own claim. **The original input
+file is never touched**: `repair()` makes one working copy (under
+`.repair_venvs/<hash>/workspace/`) the moment it starts, and every run/edit
+from then on targets that copy.
+
 ### Setup
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"          # dev/test only, not needed to use the tool itself
-python -m unittest tests.test_runner tests.test_diagnose tests.test_pypi tests.test_repair tests.test_apply tests.test_loop -v
+pip install -e ".[dev]"
+echo 'OPENAI_API_KEY=sk-...' > .env   # gitignored; loaded automatically via python-dotenv
+python -m unittest tests.test_runner tests.test_diagnose tests.test_pypi tests.test_repair tests.test_apply tests.test_llm tests.test_loop -v
 ```
 
 `pip install -e ".[dev]"` also registers `repair-tool-run`, `repair-tool-diagnose`,
-and `repair-tool-fix` console scripts — see `pyproject.toml`.
+and `repair-tool-fix` console scripts — see `pyproject.toml`. `openai` and
+`python-dotenv` are now core dependencies (Phase 5), but the import stays
+isolated to `llm.py` — the rest of the tool works without either installed.
 
-**Network note**: `tests.test_pypi`/`test_repair`/`test_loop` include
-tests that hit real PyPI and (for `test_loop`'s integration test) do a real
-install into a temporary venv. Set `SKIP_NETWORK_TESTS=1` to skip those (CI
-does this by default — see `PHASE3_ADDENDUM.md` #3); leave it unset locally
-to run them for real.
+**Network note**: several test modules include tests that hit real
+services — PyPI, and (Phase 5) OpenAI, plus real installs into temporary
+venvs. Set `SKIP_NETWORK_TESTS=1` to skip all of those (CI does this by
+default); leave it unset locally, with a real `OPENAI_API_KEY`, to run them
+for real.
 
 ### Manual checks
 
@@ -186,34 +225,34 @@ python -m repair_tool.diagnose broken_examples/06_scipy_imread.py       # import
 python -m repair_tool.diagnose hello.py                                  # none (ran fine)
 
 python -m repair_tool.loop broken_examples/01_missing_package.py         # FIXED (installs seaborn in a venv)
-python -m repair_tool.loop broken_examples/02_numpy_float.py             # NOT FIXED: not handled yet (removed API)
-python -m repair_tool.loop broken_examples/04_sklearn_externals_joblib.py  # NOT FIXED: not handled yet
+python -m repair_tool.loop broken_examples/02_numpy_float.py             # FIXED (LLM code_edit: np.float -> float)
+python -m repair_tool.loop broken_examples/03_numpy_int_bool.py          # FIXED (LLM code_edit)
+python -m repair_tool.loop broken_examples/04_sklearn_externals_joblib.py  # NOT FIXED: not handled yet (import_name)
 ```
 
 ### CI
 
-`.github/workflows/tests.yml` runs all six test modules on every push, on
+`.github/workflows/tests.yml` runs all seven test modules on every push, on
 Python 3.10 and 3.12, with `SKIP_NETWORK_TESTS=1` set so CI stays fast and
-isn't a source of flakiness from PyPI hiccups — this directly backs the
-vision doc's "Reproducibility" non-functional requirement: the test suite
-behaves the same on a clean machine as it does locally (the offline subset,
-at least; the network subset is a deliberate local-only check, see the
-addendum).
+isn't a source of flakiness from PyPI/OpenAI hiccups or API cost — this
+directly backs the vision doc's "Reproducibility" non-functional
+requirement: the test suite behaves the same on a clean machine as it does
+locally (the offline subset, at least; the network subset is a deliberate
+local-only check, see `PHASE3_ADDENDUM.md` #3).
 
 ## Roadmap (out of scope so far, tracked here for context)
 
-- **Phase 4** (implied by the vision doc) — verify each fix against
-  authoritative package metadata beyond existence/name (richer provenance
-  than Phase 3's PyPI existence check).
-- **Phase 5** — LLM-driven repair proposals, retrieval of package info; this
-  is what will act on the diagnosis kinds Phase 3 leaves as "not handled
-  yet" (`module_attribute_removed`, `object_attribute_error`, `import_name`,
-  `unknown`), and on any `missing_module` that doesn't resolve to a real
-  PyPI package.
-- **Later** — assemble the full transparency report (Phase 3 seeds
-  `reason`/`source`/`confidence`/`verification`; richer fields like
-  "alternatives" come later) that is this thesis's core contribution over
-  prior repair tools (Vision Doc, Section 7).
+- **Phase 4** (deferred, not dropped — see `PHASE5_TASK.md`'s "Build order"
+  note) — verify each fix against authoritative package metadata beyond
+  existence/name, once there's more to harden.
+- **Notebook Support** (required next, before any dataset evaluation) —
+  Phase 5 stays `.py`-only on purpose; the GigaScience evaluation corpus
+  (`dataset/`) is `.ipynb` notebooks, so the tool can't be evaluated on it
+  until this lands.
+- **Later** — assemble the full transparency report (`alternatives` is now
+  real for hard cases; richer fields like a full package-metadata
+  provenance trail come with Phase 4) that is this thesis's core
+  contribution over prior repair tools (Vision Doc, Section 7).
 
 ## Project layout
 
@@ -221,21 +260,24 @@ addendum).
 repair_tool/runner.py         Phase 1 deliverable — run_project, RunResult
 repair_tool/diagnose.py       Phase 2 deliverable — diagnose, diagnose_result, Diagnosis
 repair_tool/pypi.py           Phase 3 — PyPI lookups + curated alias map
-repair_tool/venv_manager.py   Phase 3 — isolated venv creation/reuse per target
-repair_tool/repair.py         Phase 3 — Proposal + propose (rule-based)
-repair_tool/apply.py          Phase 3 — carries out an install proposal inside a venv
-repair_tool/loop.py           Phase 3 deliverable — Attempt, RepairResult, repair(), CLI
+repair_tool/venv_manager.py   Phase 3 — isolated venv + workspace-copy creation/reuse per target
+repair_tool/repair.py         Phase 3 (propose) + Phase 5 (propose_hard_case, STRATEGY_ORDER)
+repair_tool/apply.py          Phase 3 (installs) + Phase 5 (apply_code_edit) inside a venv/workspace
+repair_tool/llm.py            Phase 5 deliverable — the only module that imports openai
+repair_tool/loop.py           Phase 3+5 deliverable — Attempt, RepairResult, repair(), CLI
 hello.py                      trivial script used to test the success path
 broken_examples/              fixed regression set (8 scripts + MANIFEST.md)
 tests/test_runner.py          Phase 1 unittest suite
 tests/test_diagnose.py        Phase 2 unittest suite
 tests/test_pypi.py            Phase 3 — pypi.py (offline + network-guarded)
-tests/test_repair.py          Phase 3 — propose() (offline + network-guarded)
-tests/test_apply.py           Phase 3 — apply() (offline, mocked subprocess)
-tests/test_loop.py            Phase 3 — repair() loop logic (offline, mocked) + real end-to-end integration test
+tests/test_repair.py          Phase 3 + 5 — propose()/propose_hard_case() (offline + network-guarded)
+tests/test_apply.py           Phase 3 + 5 — apply()/apply_code_edit() (offline, mocked subprocess)
+tests/test_llm.py             Phase 5 — llm.py (offline mocked + network-guarded real call)
+tests/test_loop.py            Phase 3 + 5 — repair() loop logic (offline, mocked) + real end-to-end integration tests
 tests/fixtures/hangs.py       infinite loop, used only to test the timeout path
-pyproject.toml                packaging + dev-only extras (numpy, pandas, ...)
+pyproject.toml                packaging + core deps (openai, python-dotenv) + dev-only extras (numpy, pandas, ...)
 .github/workflows/tests.yml   CI: runs all test suites on every push (network tests skipped)
+dataset/                      independent data track — see DATASET_SUMMARY.md
 ```
 
 `runner.py`/`diagnose.py` moved into the `repair_tool/` package as Phase 3's
