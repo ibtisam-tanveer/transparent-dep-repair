@@ -8,8 +8,9 @@ phases land. For the full reasoning behind each phase's decisions, see
 before implementation), [PHASE3_SUMMARY.md](PHASE3_SUMMARY.md),
 [PHASE5_SUMMARY.md](PHASE5_SUMMARY.md) (the thesis's core contribution),
 [PHASE5_IMPROVEMENTS_SUMMARY.md](PHASE5_IMPROVEMENTS_SUMMARY.md) (hardening
-pass on Phase 5), and [DATASET_SUMMARY.md](DATASET_SUMMARY.md) (the
-independent data track below).
+pass on Phase 5), [NOTEBOOK_SUPPORT_TASK.md](NOTEBOOK_SUPPORT_TASK.md)
+(draft spec for what's next, unimplemented), and
+[DATASET_SUMMARY.md](DATASET_SUMMARY.md) (the independent data track below).
 
 ## The tool's target loop
 
@@ -119,9 +120,10 @@ awaiting her reply.
 
 ## Suggested next step
 
-Push the Phase 5 + hardening commits. Write and start the Notebook Support
-task (`NOTEBOOK_SUPPORT_TASK.md`) — the last thing between the working tool
-and the GigaScience dataset, needed regardless of how the supervisor's 4
-open questions resolve. The `06` limitation above should be at least
-explicitly addressed in that task's or the evaluation's design, even if not
-fully fixed immediately.
+Push the Phase 5 + hardening commits. `NOTEBOOK_SUPPORT_TASK.md` is now
+written (draft, unconfirmed) — get it reviewed (by you or the supervisor)
+before implementing, the same way every other phase's scope was confirmed
+first. It's the last thing between the working tool and the GigaScience
+dataset, needed regardless of how the supervisor's 4 open questions
+resolve. The `06` limitation above is explicitly flagged in that draft as
+related-but-out-of-scope, not silently dropped.
