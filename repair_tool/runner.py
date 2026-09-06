@@ -42,6 +42,13 @@ def run_project(path: str, timeout: int = 60, python_exe: str | None = None) -> 
             stderr=f"FileNotFoundError: no such file: {path!r}",
         )
 
+    # The only branch notebook support adds here -- see NOTEBOOK_SUPPORT_TASK.md.
+    # Everything below is the unchanged .py subprocess path.
+    if path.endswith(".ipynb"):
+        from .notebook import run_notebook
+
+        return run_notebook(path, timeout=timeout, python_exe=python_exe)
+
     executable = python_exe or sys.executable
 
     try:

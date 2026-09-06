@@ -1,7 +1,7 @@
 [project]
 name = "transparent-dep-repair"
 version = "0.1.0"
-description = "AI-Driven Transparent Repair of Software Dependency Configurations (MSc thesis) — Phase 1-5: run, capture, diagnose, propose/apply/verify, LLM repair"
+description = "AI-Driven Transparent Repair of Software Dependency Configurations (MSc thesis) — Phase 1-5 + Notebook Support: run, capture, diagnose, propose/apply/verify, LLM repair, .ipynb support"
 requires-python = ">=3.10"
 authors = [{ name = "Muhammad Ibtisam Tanveer" }]
 
@@ -11,11 +11,22 @@ dependencies = [
     # importable and testable without either of these.
     "openai>=1.0.0",
     "python-dotenv",
+    # Notebook Support (repair_tool/notebook.py): the execution *driver*.
+    # Runs from this tool's own environment, orchestrating a kernel in the
+    # *target's* venv -- see NOTEBOOK_SUPPORT_TASK.md's "where the execution
+    # libraries live" split. ipykernel is deliberately NOT listed here: it
+    # gets installed into each target venv instead (venv_manager.ensure_ipykernel).
+    "nbclient",
+    "nbformat",
 ]
 
 [project.optional-dependencies]
 # Not needed to use runner.py itself (stdlib only). Only for exercising
 # broken_examples/ during development, see broken_examples/MANIFEST.md.
+# ipykernel here is for the dev .venv itself, so a direct run_project()/
+# apply_code_edit() call on a notebook (no explicit python_exe, i.e.
+# sys.executable) works out of the box in this environment too -- separate
+# from venv_manager.ensure_ipykernel(), which covers venvs repair() creates.
 dev = [
     "numpy",
     "pandas",
@@ -23,6 +34,7 @@ dev = [
     "scipy",
     "imageio",
     "pyyaml",
+    "ipykernel",
 ]
 
 [project.scripts]

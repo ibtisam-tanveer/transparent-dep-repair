@@ -8,8 +8,15 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import subprocess
 import sys
 import venv
+
+# See NOTEBOOK_SUPPORT_TASK.md's "where the execution libraries live":
+# nbclient/nbformat are the driver (repair_tool's own dependency, see
+# pyproject.toml); only ipykernel needs to live inside each target venv,
+# since that's what actually launches a kernel using that venv's packages.
+_IPYKERNEL_INSTALL_TIMEOUT = 120
 
 # Overridable (tests point this at a temp dir instead of polluting the repo).
 VENV_ROOT = os.path.join(os.getcwd(), ".repair_venvs")
@@ -41,6 +48,41 @@ def get_workspace_copy(target_path: str) -> str:
     if not os.path.isfile(copy_path):
         shutil.copyfile(target_path, copy_path)
     return copy_path
+
+
+def ensure_ipykernel(python_exe: str) -> tuple[bool, str]:
+    """Make sure `python_exe`'s environment can launch a Jupyter kernel.
+
+    Checks first (cheap) so a repeat call on an already-equipped venv is a
+    no-op; installs otherwise. Never raises: any failure comes back as
+    (False, <log>), same contract as apply.apply().
+    """
+    try:
+        check = subprocess.run(
+            [python_exe, "-c", "import ipykernel"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return False, f"could not check for ipykernel: {exc}"
+    if check.returncode == 0:
+        return True, "ipykernel already present"
+
+    try:
+        completed = subprocess.run(
+            [python_exe, "-m", "pip", "install", "ipykernel"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_IPYKERNEL_INSTALL_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"ipykernel install timed out after {_IPYKERNEL_INSTALL_TIMEOUT}s"
+
+    log = completed.stdout + completed.stderr
+    return completed.returncode == 0, log
 
 
 def _venv_dir_for(target_path: str) -> str:

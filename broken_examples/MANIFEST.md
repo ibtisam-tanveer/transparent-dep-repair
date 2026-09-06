@@ -31,6 +31,18 @@ install` your way back to Python 2 dict behavior), so this is also a useful
 case for confirming the LLM correctly returns `env_fix.applicable = false`
 rather than inventing a nonsensical package/constraint.
 
+## `notebooks/` — the same idea, as `.ipynb` (Notebook Support)
+
+`broken_examples/notebooks/` mirrors the `.py` set for testing notebook
+execution (`NOTEBOOK_SUPPORT_TASK.md`) — each is a couple of cells, so
+"stop at the first failing cell" is actually exercised, not trivial:
+
+| File | Cells | What's wrong |
+|------|-------|---------------|
+| `missing_package.ipynb` | benign print, then `import seaborn` | same as `01_missing_package.py`, as a notebook |
+| `numpy_float.ipynb` | benign numpy use, then `np.float(3.14)` | same as `02_numpy_float.py`, as a notebook |
+| `missing_data_file.ipynb` | opens a nonexistent file | out-of-scope case (needs external data) — must be reported honestly, never crash the tool |
+
 ## Two kinds of problem, on purpose
 
 - **Missing / moved package** (01, 04, 06) — often fixable by installing or

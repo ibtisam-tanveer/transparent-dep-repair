@@ -132,7 +132,17 @@ def apply_code_edit(edits: list[dict], workspace_path: str) -> tuple[bool, str]:
     never the user's original input file. Never raises: an edit whose `find`
     string doesn't appear verbatim in the source (e.g. different whitespace)
     is a verification failure, not a crash — per PHASE5_TASK.md.
+
+    A `.ipynb` target dispatches to notebook.edit_notebook_cells (searches
+    across code cells instead of one file's text) -- see
+    NOTEBOOK_SUPPORT_TASK.md. Everything below this is the unchanged
+    plain-text path for `.py` targets.
     """
+    if workspace_path.endswith(".ipynb"):
+        from .notebook import edit_notebook_cells
+
+        return edit_notebook_cells(edits, workspace_path)
+
     if not edits:
         return False, "no edits provided"
 

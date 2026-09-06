@@ -232,7 +232,7 @@ python -m repair_tool.loop broken_examples/04_sklearn_externals_joblib.py  # NOT
 
 ### CI
 
-`.github/workflows/tests.yml` runs all seven test modules on every push, on
+`.github/workflows/tests.yml` runs all test modules on every push, on
 Python 3.10 and 3.12, with `SKIP_NETWORK_TESTS=1` set so CI stays fast and
 isn't a source of flakiness from PyPI/OpenAI hiccups or API cost — this
 directly backs the vision doc's "Reproducibility" non-functional
@@ -240,15 +240,60 @@ requirement: the test suite behaves the same on a clean machine as it does
 locally (the offline subset, at least; the network subset is a deliberate
 local-only check, see `PHASE3_ADDENDUM.md` #3).
 
+## Notebook Support — run and repair `.ipynb` notebooks
+
+Extends the same loop to Jupyter notebooks, since the primary evaluation
+dataset (`dataset/`, the GigaScience corpus) is entirely `.ipynb`. See
+`NOTEBOOK_SUPPORT_TASK.md` for the design and `NOTEBOOK_SUPPORT_SUMMARY.md`
+for what actually happened building it — including two real, subtle bugs
+found and fixed by testing against real execution rather than assuming the
+design worked: a `KernelManager.kernel_cmd` attribute that looked correct
+but was silently never consulted (every notebook was secretly executing
+under this tool's own interpreter, defeating isolation entirely — caught by
+the kernel-isolation test the task doc specifically called for), and a ZMQ
+socket leak from an externally-provided kernel manager not being fully torn
+down.
+
+`repair_tool/notebook.py` is the only new module — `diagnose.py`,
+`repair.py`, `llm.py`, `pypi.py`, and `venv_manager.py`'s core logic needed
+**zero changes**, exactly as designed: `runner.run_project` and
+`apply.apply_code_edit` each detect a `.ipynb` target and dispatch there,
+so a notebook produces the same `RunResult` shape a `.py` subprocess run
+does, and everything downstream stays format-agnostic.
+
+```python
+from repair_tool.loop import repair
+
+result = repair("broken_examples/notebooks/missing_package.ipynb")
+assert result.fixed is True   # same loop, same transparency report, a notebook this time
+```
+
+Manual checks:
+
+```bash
+python -m repair_tool.loop broken_examples/notebooks/missing_package.ipynb   # FIXED (install)
+python -m repair_tool.loop broken_examples/notebooks/numpy_float.ipynb        # FIXED (LLM code_edit)
+python -m repair_tool.loop broken_examples/notebooks/missing_data_file.ipynb  # NOT FIXED, honestly (out of scope: needs external data)
+```
+
+`nbclient`/`nbformat` are core dependencies (the execution *driver*, run
+from this tool's own environment); `ipykernel` is installed into each
+*target* venv instead (`venv_manager.ensure_ipykernel`), since that's what
+actually launches a kernel using that venv's packages — getting this split
+right is what makes "installing a fix into the venv" actually affect the
+notebook run. Test with `python -m unittest tests.test_notebook -v`.
+
 ## Roadmap (out of scope so far, tracked here for context)
 
 - **Phase 4** (deferred, not dropped — see `PHASE5_TASK.md`'s "Build order"
   note) — verify each fix against authoritative package metadata beyond
   existence/name, once there's more to harden.
-- **Notebook Support** (required next, before any dataset evaluation) —
-  Phase 5 stays `.py`-only on purpose; the GigaScience evaluation corpus
-  (`dataset/`) is `.ipynb` notebooks, so the tool can't be evaluated on it
-  until this lands.
+- **The "correct fix, missing import" gap** (found via `06_scipy_imread.py`
+  during Phase 5 hardening) — a code fix that introduces a new import can't
+  succeed, since nothing installs it; see `PROJECT_STATUS.md`'s flagged
+  section. Expected to matter more on real notebooks, not less.
+- **Dataset evaluation** — waits on the supervisor's dataset/taxonomy
+  decisions (2023 GigaScience rerun; see `PROJECT_STATUS.md`).
 - **Later** — assemble the full transparency report (`alternatives` is now
   real for hard cases; richer fields like a full package-metadata
   provenance trail come with Phase 4) that is this thesis's core
@@ -274,8 +319,11 @@ tests/test_repair.py          Phase 3 + 5 — propose()/propose_hard_case() (off
 tests/test_apply.py           Phase 3 + 5 — apply()/apply_code_edit() (offline, mocked subprocess)
 tests/test_llm.py             Phase 5 — llm.py (offline mocked + network-guarded real call)
 tests/test_loop.py            Phase 3 + 5 — repair() loop logic (offline, mocked) + real end-to-end integration tests
+repair_tool/notebook.py       Notebook Support deliverable — run_notebook, edit_notebook_cells
+broken_examples/notebooks/    small .ipynb fixtures mirroring the .py set
+tests/test_notebook.py        Notebook Support — dispatch, error extraction, kernel isolation, end-to-end
 tests/fixtures/hangs.py       infinite loop, used only to test the timeout path
-pyproject.toml                packaging + core deps (openai, python-dotenv) + dev-only extras (numpy, pandas, ...)
+pyproject.toml                packaging + core deps (openai, python-dotenv, nbclient, nbformat) + dev-only extras (numpy, pandas, ipykernel, ...)
 .github/workflows/tests.yml   CI: runs all test suites on every push (network tests skipped)
 dataset/                      independent data track — see DATASET_SUMMARY.md
 ```
