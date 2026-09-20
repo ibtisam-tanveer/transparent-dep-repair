@@ -1,5 +1,6 @@
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -11,8 +12,10 @@ from repair_tool import venv_manager
 from repair_tool.repo import (
     RepoResult,
     _install_dependencies,
+    _looks_like_a_git_url,
     _pyproject_declares_a_package,
     analyze_repo,
+    analyze_repo_url,
     discover_runnable_files,
     find_dependency_files,
 )
@@ -212,6 +215,92 @@ class TestAnalyzeRepoOffline(unittest.TestCase):
         result = analyze_repo(SAMPLE_REPO, pass_rule=broken_rule)
         self.assertIsNone(result.passed)
         self.assertEqual(len(result.files), 3)  # analysis itself still completed
+
+
+class TestLooksLikeAGitUrl(unittest.TestCase):
+    def test_recognises_urls(self):
+        self.assertTrue(_looks_like_a_git_url("https://github.com/x/y.git"))
+        self.assertTrue(_looks_like_a_git_url("https://github.com/x/y"))
+        self.assertTrue(_looks_like_a_git_url("git@github.com:x/y.git"))
+        self.assertTrue(_looks_like_a_git_url("ssh://git@example.com/x/y.git"))
+
+    def test_does_not_flag_a_local_path(self):
+        self.assertFalse(_looks_like_a_git_url("/some/local/repo"))
+        self.assertFalse(_looks_like_a_git_url("tests/fixtures/sample_repo"))
+
+
+def _make_local_git_repo(with_file_content: str) -> str:
+    """A tiny real git repo on disk, so analyze_repo_url's `git clone` path
+    can be exercised offline (git clones a local path just as well as a
+    remote URL -- no network needed for this)."""
+    path = tempfile.mkdtemp(prefix="test_repo_clone_source_")
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=path, check=True)
+    with open(os.path.join(path, "good.py"), "w") as f:
+        f.write(with_file_content)
+    subprocess.run(["git", "add", "."], cwd=path, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "initial"], cwd=path, check=True)
+    return path
+
+
+class TestAnalyzeRepoUrlOffline(unittest.TestCase):
+    """Clones from a local git repo, not a remote one -- exercises the real
+    `git clone` + analyze + cleanup path without needing network."""
+
+    @patch("repair_tool.repo.get_venv_python", return_value=sys.executable)
+    def test_clones_analyzes_and_reports_the_original_identifier(self, _mock_venv):
+        source = _make_local_git_repo("print('hello')\n")
+        try:
+            result = analyze_repo_url(source)
+        finally:
+            shutil.rmtree(source, ignore_errors=True)
+
+        self.assertEqual(result.repo_path, source)  # not the (deleted) temp clone path
+        self.assertEqual(len(result.files), 1)
+        self.assertTrue(result.files[0].run_result.ok)
+
+    @patch("repair_tool.repo.get_venv_python", return_value=sys.executable)
+    def test_clone_is_deleted_after_analysis(self, _mock_venv):
+        controlled_tmpdir = tempfile.mkdtemp(prefix="test_repo_clone_controlled_")
+        source = _make_local_git_repo("print('hi')\n")
+        try:
+            with patch("repair_tool.repo.tempfile.mkdtemp", return_value=controlled_tmpdir):
+                analyze_repo_url(source)
+            self.assertFalse(os.path.isdir(controlled_tmpdir))
+        finally:
+            shutil.rmtree(source, ignore_errors=True)
+            shutil.rmtree(controlled_tmpdir, ignore_errors=True)
+
+    def test_bad_source_fails_gracefully_and_still_cleans_up(self):
+        controlled_tmpdir = tempfile.mkdtemp(prefix="test_repo_clone_controlled_bad_")
+        try:
+            with patch("repair_tool.repo.tempfile.mkdtemp", return_value=controlled_tmpdir):
+                result = analyze_repo_url("/no/such/repo/anywhere")
+            self.assertFalse(result.env_setup_ok)
+            self.assertEqual(result.files, [])
+            self.assertFalse(os.path.isdir(controlled_tmpdir))
+        finally:
+            shutil.rmtree(controlled_tmpdir, ignore_errors=True)
+
+    def test_clone_timeout_is_a_clean_failure_not_a_crash(self):
+        with patch(
+            "repair_tool.repo.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="git clone", timeout=5),
+        ):
+            result = analyze_repo_url("https://example.com/whatever.git", clone_timeout=5)
+        self.assertFalse(result.env_setup_ok)
+        self.assertIn("timed out", result.env_setup_log)
+
+
+@unittest.skipIf(SKIP_NETWORK, "SKIP_NETWORK_TESTS set")
+class TestAnalyzeRepoUrlNetwork(unittest.TestCase):
+    def test_required_behaviour_real_github_url(self):
+        # A tiny, extremely stable public repo (GitHub's own demo repo).
+        result = analyze_repo_url("https://github.com/octocat/Hello-World.git")
+        self.assertEqual(result.repo_path, "https://github.com/octocat/Hello-World.git")
+        self.assertIn(result.env_setup_ok, (True, False))
+        self.assertIsInstance(result.summary, dict)
 
 
 @unittest.skipIf(SKIP_NETWORK, "SKIP_NETWORK_TESTS set")

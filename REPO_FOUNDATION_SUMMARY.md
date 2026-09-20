@@ -12,16 +12,35 @@ Given a local repo folder: find its dependency declarations, set up **one
 shared** isolated environment for the whole repo, discover every runnable
 `.py`/`.ipynb` file, run each in that shared environment, and collect
 per-file results + diagnoses + a repo-level summary. **No repair at repo
-scale in this task** — run and diagnose only.
+scale in this task** — run and diagnose only. The task's own design
+guidance explicitly deferred git-URL cloning as "a thin wrapper added
+later" — added afterward, in this same pass, once asked whether the tool
+could clone a repo itself rather than requiring a pre-existing local clone.
 
 ## What was built
 
 | File | Purpose |
 |---|---|
-| `repair_tool/repo.py` | `analyze_repo(repo_path, timeout, pass_rule) -> RepoResult`, plus `discover_runnable_files`, `find_dependency_files`, and a CLI |
+| `repair_tool/repo.py` | `analyze_repo(repo_path, timeout, pass_rule) -> RepoResult`, `analyze_repo_url(git_url, ...)`, plus `discover_runnable_files`, `find_dependency_files`, and a CLI that auto-detects a URL vs. a local path |
 | `tests/fixtures/sample_repo/` | Offline-testable fixture: no deps, one file that runs, one that fails on a missing import, a notebook, a `tests/` file that must be excluded from discovery |
 | `tests/fixtures/sample_repo_with_deps/` | A `requirements.txt` (`seaborn`) + a file that needs it, for the network-guarded real-install test |
-| `tests/test_repo.py` | 21 tests: discovery/exclusion rules, dependency-file detection and priority, `pyproject.toml` package-vs-tool-config detection, `analyze_repo`'s control flow (offline, mocked venv), and two real end-to-end installs |
+| `tests/test_repo.py` | 28 tests: discovery/exclusion rules, dependency-file detection and priority, `pyproject.toml` package-vs-tool-config detection, `analyze_repo`'s control flow (offline, mocked venv), URL-vs-path detection, `analyze_repo_url`'s clone/analyze/cleanup cycle (offline, cloning from a local git repo), and three real end-to-end runs (two installs + one real GitHub URL) |
+
+### `analyze_repo_url` — cloning added as a follow-up, same design discipline
+
+`git clone --depth 1 <url> <tmpdir>`, then `analyze_repo(tmpdir, ...)`, then
+`shutil.rmtree(tmpdir)` in a `finally` block — always, success or failure,
+so repeated calls don't accumulate clones on disk (confirmed by a dedicated
+test with a controlled temp path). The returned `RepoResult.repo_path` is
+set back to the original URL once analysis finishes, since the temp path
+it was actually analyzed under no longer exists by the time the caller
+sees the result. Public repos only, deliberately: no credential handling
+of any kind, so a private repo fails exactly like a bad URL would
+(`env_setup_ok=False`, a message in `env_setup_log`), never a crash. Tests
+exercise the real clone mechanism offline by cloning from a local git repo
+(git clones a local path exactly the same way it clones a remote one) —
+one real network test against a tiny, stable public repo
+(`github.com/octocat/Hello-World`) confirms the actual remote path too.
 
 `runner.run_project`, `notebook.run_notebook` (via `run_project`'s existing
 dispatch), `diagnose.py`, and `venv_manager.py` — all reused completely
@@ -87,7 +106,7 @@ fixtures (the latter guarded, using a real minimal package definition).
   result, and confirmed the per-file data doesn't depend on a rule being
   supplied at all.
 - Single-file behaviour and all 118 prior tests are unchanged — confirmed
-  unmodified; full suite is now 139 tests.
+  unmodified; full suite is now 146 tests.
 - One bad file is recorded, not fatal — `bad_missing_import.py` fails
   correctly (`missing_module`) while `good.py` and the notebook still run
   and are reported.
@@ -99,9 +118,14 @@ fixtures (the latter guarded, using a real minimal package definition).
   file needing it then imports successfully) — plus confirmed a
   tool-config-only `pyproject.toml` is correctly skipped in favor of the
   next candidate.
-- Full suite: **139 tests** (118 prior + 21 new — 19 offline, 2 guarded),
-  passing both offline (123 run, 16 skipped) and fully online (~142s,
-  including two real venv/install cycles for this task alone, on top of
+- `analyze_repo_url` clones, analyzes, and always cleans up — verified with
+  a controlled temp path that a normal run, a failing clone, and a timed-out
+  clone all result in the temp directory being gone afterward; verified for
+  real against a live public GitHub URL.
+- Full suite: **146 tests** (118 prior + 28 new for Repo Foundation total —
+  25 offline, 3 guarded), passing both offline (127 run, 19 skipped) and
+  fully online (~143s, including three real network operations for this
+  task alone — two installs and one real GitHub clone — on top of
   everything from prior phases).
 
 ## Explicitly out of scope (per the task, unchanged)

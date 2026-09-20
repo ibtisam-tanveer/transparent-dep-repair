@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -165,6 +167,10 @@ def _install_dependencies(
     )
 
 
+def _empty_summary() -> dict:
+    return {"total": 0, "ran": 0, "failed": 0, "failures_by_kind": {}}
+
+
 def _build_summary(files: list[FileResult]) -> dict:
     total = len(files)
     ran = sum(1 for f in files if f.run_result.ok)
@@ -192,7 +198,7 @@ def analyze_repo(
             repo_path=repo_path,
             env_setup_ok=False,
             env_setup_log=f"not a directory: {repo_path!r}",
-            summary={"total": 0, "ran": 0, "failed": 0, "failures_by_kind": {}},
+            summary=_empty_summary(),
         )
 
     dependency_files_found = find_dependency_files(repo_path)
@@ -229,16 +235,86 @@ def analyze_repo(
     return result
 
 
+_CLONE_TIMEOUT = 120
+
+
+def analyze_repo_url(
+    git_url: str,
+    timeout: int = DEFAULT_TIMEOUT,
+    pass_rule: Callable[["RepoResult"], bool] | None = None,
+    clone_timeout: int = _CLONE_TIMEOUT,
+) -> RepoResult:
+    """Clone `git_url` into a throwaway temporary directory, analyze it
+    exactly like analyze_repo(), and always delete the clone afterward --
+    success or failure -- so repeated calls don't accumulate clones on
+    disk. The returned RepoResult's `repo_path` is set back to `git_url`
+    itself once done, since the temp path it was actually analyzed under
+    no longer exists by the time the caller sees the result.
+
+    Public repos only: this shells out to a plain `git clone`, with no
+    credential handling of any kind -- a private repo fails exactly like a
+    bad URL would, honestly (env_setup_ok=False), never a crash. `git_url`
+    may also be a local path (git clones those too), which is exactly how
+    this function's own tests exercise it without needing real network.
+    """
+    tmpdir = tempfile.mkdtemp(prefix="repair_tool_repo_clone_")
+    try:
+        try:
+            completed = subprocess.run(
+                ["git", "clone", "--depth", "1", git_url, tmpdir],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=clone_timeout,
+            )
+        except subprocess.TimeoutExpired:
+            return RepoResult(
+                repo_path=git_url,
+                env_setup_ok=False,
+                env_setup_log=f"git clone timed out after {clone_timeout}s",
+                summary=_empty_summary(),
+            )
+        except OSError as exc:
+            return RepoResult(
+                repo_path=git_url,
+                env_setup_ok=False,
+                env_setup_log=f"could not run git: {exc}",
+                summary=_empty_summary(),
+            )
+
+        if completed.returncode != 0:
+            return RepoResult(
+                repo_path=git_url,
+                env_setup_ok=False,
+                env_setup_log=f"git clone failed: {(completed.stdout + completed.stderr).strip()}",
+                summary=_empty_summary(),
+            )
+
+        result = analyze_repo(tmpdir, timeout=timeout, pass_rule=pass_rule)
+        result.repo_path = git_url
+        return result
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def _looks_like_a_git_url(value: str) -> bool:
+    return value.startswith(("http://", "https://", "git@", "ssh://")) or value.endswith(".git")
+
+
 def _main() -> int:
     parser = argparse.ArgumentParser(
         description="Set up a shared environment for a repo, run every file in it, "
         "and report per-file results (diagnosis only -- no repair at this stage)."
     )
-    parser.add_argument("repo_path", help="path to the repo folder")
+    parser.add_argument("repo", help="path to a local repo folder, or a git URL to clone (cloned copy is deleted afterward)")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     args = parser.parse_args()
 
-    result = analyze_repo(args.repo_path, timeout=args.timeout)
+    if _looks_like_a_git_url(args.repo):
+        result = analyze_repo_url(args.repo, timeout=args.timeout)
+    else:
+        result = analyze_repo(args.repo, timeout=args.timeout)
 
     print(f"Repo: {result.repo_path}")
     print(f"Dependency files found: {result.dependency_files_found or 'none'}")

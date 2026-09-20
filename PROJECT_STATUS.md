@@ -55,7 +55,7 @@ decision.
 | 5 | `repair_tool/llm.py` + extensions | done, committed+pushed (`2fb8853`) | LLM-based repair for the "not handled yet" kinds: two candidate fixes (code vs. environment), applied+verified by re-running, winner kept, loser recorded as a rejected alternative, `strategy_won` logged. |
 | 5 (hardening) | same files, extended | done, committed+pushed (`2fb8853` + `dce5ce9`) | Isolates the two candidate strategies (snapshot/restore, incl. a real bug fixed), records model identity, adds a non-numpy/pandas example. **Surfaced the `06` limitation — see below.** |
 | Notebook Support | `repair_tool/notebook.py` + extensions | done, committed+pushed (`0d56265`) | Extends the loop to `.ipynb`. **Found and fixed two real bugs during verification** — a `KernelManager.kernel_cmd` attribute silently never consulted (every notebook was secretly executing under this tool's own dev interpreter) and a kernel/ZMQ-socket resource leak. See `NOTEBOOK_SUPPORT_SUMMARY.md`. |
-| Repo Foundation | `repair_tool/repo.py` (new) | **done, implemented+verified, not yet committed** | `analyze_repo()`: one shared venv per repo, dependency-file detection + best-effort install, discovers and runs every `.py`/`.ipynb` file, per-file diagnosis, configurable pass rule. Reuses `runner`/`notebook`/`diagnose`/`venv_manager` entirely unchanged. **Run and diagnose only — no repair at repo scale.** See `REPO_FOUNDATION_SUMMARY.md`. |
+| Repo Foundation | `repair_tool/repo.py` (new) | done, committed+pushed (`dd5ca6e`/`7dbfdf3`) | `analyze_repo()`: one shared venv per repo, dependency-file detection + best-effort install, discovers and runs every `.py`/`.ipynb` file, per-file diagnosis, configurable pass rule. `analyze_repo_url()` added as a follow-up: clones a git URL into a throwaway temp dir, analyzes it, always deletes the clone. Reuses `runner`/`notebook`/`diagnose`/`venv_manager` entirely unchanged. **Run and diagnose only — no repair at repo scale.** See `REPO_FOUNDATION_SUMMARY.md`. |
 | Repo-scale repair, hybrid, agentic | — | **on hold** | Explicitly paused pending the supervisor's confirmation of the novel contribution, build priority, and which classical tool to study (`NEW_DIRECTION.md`). |
 | 4 | — | **deferred, not dropped** | Verify a fix against authoritative package metadata beyond existence/name. |
 | — | — | in progress | Full transparency report (Vision Doc §7) — `alternatives` now carries real content (Phase 5); richer package-metadata provenance comes with Phase 4. |
@@ -105,7 +105,7 @@ actual evaluation once that work resumes.
 
 ## Verification
 
-- **139/139 tests passing** (118 prior + 21 new from Repo Foundation), both
+- **146/146 tests passing** (118 prior + 28 new from Repo Foundation, incl. the `analyze_repo_url` follow-up), both
   with `SKIP_NETWORK_TESTS=1` (123 run, 16 correctly skipped) and fully
   online locally (~142s, including real venv/install cycles for `pip
   install -r requirements.txt` and a real `pyproject.toml`-declared package).
@@ -118,7 +118,7 @@ actual evaluation once that work resumes.
 
 ## Infrastructure
 
-- Git repo: `github.com/ibtisam-tanveer/transparent-dep-repair`. Everything through Notebook Support is committed and pushed (`0d56265`). **Repo Foundation is implemented and fully verified but not yet committed.**
+- Git repo: `github.com/ibtisam-tanveer/transparent-dep-repair`. Everything through Repo Foundation is committed and pushed. Remote now uses SSH (was HTTPS with an expiring token) to stop the recurring auth-failure loop.
 - Packaging via `pyproject.toml`: `openai`, `python-dotenv`, `nbclient`, `nbformat` are core dependencies, each import isolated to the one module that needs it. `ipykernel` is dev-only plus installed per-target-venv at runtime.
 - `OPENAI_API_KEY` is read from the environment, with `.env` support (gitignored; only its presence/length was ever verified, never its value). **May need to change** once the supervisor's model/key details are confirmed (`NEW_DIRECTION.md` item 6) — `llm.py`'s OpenAI-specific bits (e.g. `response_format={"type": "json_object"}`) would need adjusting for a non-OpenAI provider.
 - Code lives in `repair_tool/` (moved from flat root modules as Phase 3's Step 0).
@@ -134,6 +134,9 @@ actual evaluation once that work resumes.
 
 ## Suggested next step
 
-1. Commit and push Repo Foundation.
-2. Everything else is genuinely blocked on the supervisor's written confirmation of: the exact novel contribution, build priority, which classical dependency tool to study, and the model/API key details (`NEW_DIRECTION.md`). No further repo-scale repair, hybrid, or agentic work should start until then.
-3. The `06` limitation and the paused dataset/taxonomy work remain accurately tracked here, ready to resume once priorities are confirmed.
+Everything is genuinely blocked on the supervisor's written confirmation of:
+the exact novel contribution, build priority, which classical dependency
+tool to study, and the model/API key details (`NEW_DIRECTION.md`). No
+further repo-scale repair, hybrid, or agentic work should start until then.
+The `06` limitation and the paused dataset/taxonomy work remain accurately
+tracked here, ready to resume once priorities are confirmed.

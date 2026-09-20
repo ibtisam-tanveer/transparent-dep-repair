@@ -315,12 +315,21 @@ result = analyze_repo("path/to/some/repo")
 print(result.summary)  # e.g. {"total": 12, "ran": 9, "failed": 3, "failures_by_kind": {...}}
 ```
 
-CLI:
+CLI (accepts a local path **or** a git URL — a URL is cloned into a
+throwaway temp directory, analyzed, and the clone is always deleted
+afterward, success or failure):
 
 ```bash
-python -m repair_tool.repo <path-to-repo> [--timeout SECONDS]
-# or: repair-tool-analyze-repo <path-to-repo>
+python -m repair_tool.repo <path-to-repo-or-git-url> [--timeout SECONDS]
+# or: repair-tool-analyze-repo <path-to-repo-or-git-url>
+
+python -m repair_tool.repo https://github.com/some/repo.git   # clones, analyzes, cleans up
 ```
+
+`analyze_repo_url(git_url)` is the same thing from Python. Public repos
+only — it shells out to a plain `git clone` with no credential handling of
+any kind, so a private repo fails honestly (`env_setup_ok=False`), never a
+crash.
 
 **One shared venv needed no changes to `venv_manager.py`** — `get_venv_python()`
 just hashes whatever path string it's given, so passing it the repo root
@@ -386,7 +395,7 @@ tests/test_loop.py            Phase 3 + 5 — repair() loop logic (offline, mock
 repair_tool/notebook.py       Notebook Support deliverable — run_notebook, edit_notebook_cells
 broken_examples/notebooks/    small .ipynb fixtures mirroring the .py set
 tests/test_notebook.py        Notebook Support — dispatch, error extraction, kernel isolation, end-to-end
-repair_tool/repo.py            Repo Foundation deliverable — analyze_repo, RepoResult, FileResult, CLI
+repair_tool/repo.py            Repo Foundation deliverable — analyze_repo, analyze_repo_url, RepoResult, FileResult, CLI
 tests/fixtures/sample_repo/                small offline-testable repo fixture (no deps, one good/bad file, a notebook)
 tests/fixtures/sample_repo_with_deps/      repo fixture with a real requirements.txt (network-guarded)
 tests/test_repo.py            Repo Foundation — discovery, dependency detection/install, analyze_repo (offline + guarded)
