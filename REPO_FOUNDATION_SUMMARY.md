@@ -46,6 +46,31 @@ one real network test against a tiny, stable public repo
 dispatch), `diagnose.py`, and `venv_manager.py` — all reused completely
 unchanged, exactly as the task asked.
 
+## A real bug found by running it against a real repo
+
+Manually running `analyze_repo` against a real project surfaced a genuine
+gap: the repo had its own virtual environment folder named `myenv/` (a
+Windows-style venv layout, `Lib/site-packages`), and `myenv` wasn't in the
+hardcoded `_EXCLUDED_DIRS` list — only `.venv`/`venv` were. So
+`discover_runnable_files` walked straight into it and treated every one of
+pip's own vendored library files (`urllib3`, `webencodings`, ...) as a
+discoverable project entrypoint, producing ~280 spurious "failures" that
+buried the two real ones (`preprocess_dataset.py`, `training.py`, both
+genuinely `missing_module`) in noise.
+
+**The actual problem: a name-based blocklist can never be complete** —
+there's no naming convention anyone is required to follow for a venv
+folder. **Fix**: detect a venv *structurally* instead — every real Python
+virtual environment (`venv` or `virtualenv`, any name) has a `pyvenv.cfg`
+file directly inside it. `_is_venv_dir()` checks for that file and prunes
+the `os.walk` traversal the moment it's found, catching `myenv`, `env`, or
+any other name, permanently, without needing to anticipate it. `site-packages`
+and `conda-meta` were also added to the name-based list as a second safety
+net, since conda environments don't have a `pyvenv.cfg` to detect
+structurally. Verified with a test that reproduces the exact scenario
+(a `myenv/` containing fake vendored files plus a real project file) and
+confirms only the real file is discovered.
+
 ## Design decisions and why
 
 - **"One shared venv" needed zero changes to `venv_manager.py`.**
@@ -106,7 +131,7 @@ fixtures (the latter guarded, using a real minimal package definition).
   result, and confirmed the per-file data doesn't depend on a rule being
   supplied at all.
 - Single-file behaviour and all 118 prior tests are unchanged — confirmed
-  unmodified; full suite is now 146 tests.
+  unmodified; full suite is now 149 tests.
 - One bad file is recorded, not fatal — `bad_missing_import.py` fails
   correctly (`missing_module`) while `good.py` and the notebook still run
   and are reported.
@@ -122,7 +147,7 @@ fixtures (the latter guarded, using a real minimal package definition).
   a controlled temp path that a normal run, a failing clone, and a timed-out
   clone all result in the temp directory being gone afterward; verified for
   real against a live public GitHub URL.
-- Full suite: **146 tests** (118 prior + 28 new for Repo Foundation total —
+- Full suite: **149 tests** (118 prior + 31 new for Repo Foundation total —
   25 offline, 3 guarded), passing both offline (127 run, 19 skipped) and
   fully online (~143s, including three real network operations for this
   task alone — two installs and one real GitHub clone — on top of

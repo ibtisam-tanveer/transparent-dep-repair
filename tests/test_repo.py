@@ -12,6 +12,7 @@ from repair_tool import venv_manager
 from repair_tool.repo import (
     RepoResult,
     _install_dependencies,
+    _is_venv_dir,
     _looks_like_a_git_url,
     _pyproject_declares_a_package,
     analyze_repo,
@@ -64,6 +65,58 @@ class TestDiscovery(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         self.assertEqual(found, [])
+
+    def test_excludes_a_custom_named_venv_by_structure_not_name(self):
+        # Reproduces a real bug found manually: a venv folder named
+        # "myenv" (not one of the hardcoded names) got walked into, and
+        # every vendored library file inside it got treated as a
+        # discoverable project file. Every real venv has a pyvenv.cfg
+        # directly inside it, regardless of what the folder is called --
+        # that's what _is_venv_dir checks instead of the name.
+        tmpdir = tempfile.mkdtemp()
+        try:
+            venv_dir = os.path.join(tmpdir, "myenv")
+            vendored = os.path.join(venv_dir, "Lib", "site-packages", "pip", "_vendor", "urllib3")
+            os.makedirs(vendored)
+            with open(os.path.join(venv_dir, "pyvenv.cfg"), "w") as f:
+                f.write("home = /usr/bin\n")
+            with open(os.path.join(vendored, "poolmanager.py"), "w") as f:
+                f.write("raise RuntimeError('vendored library code, must never be discovered')")
+            with open(os.path.join(tmpdir, "training.py"), "w") as f:
+                f.write("print('real project file')")
+
+            found = discover_runnable_files(tmpdir)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+        self.assertEqual(found, ["training.py"])
+
+    def test_is_venv_dir_true_only_with_pyvenv_cfg_present(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            self.assertFalse(_is_venv_dir(tmpdir))
+            with open(os.path.join(tmpdir, "pyvenv.cfg"), "w") as f:
+                f.write("home = /usr/bin\n")
+            self.assertTrue(_is_venv_dir(tmpdir))
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_excludes_site_packages_and_conda_meta_by_name_as_a_second_safety_net(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            for name in ["site-packages", "conda-meta"]:
+                d = os.path.join(tmpdir, name)
+                os.makedirs(d)
+                with open(os.path.join(d, "vendored.py"), "w") as f:
+                    f.write("raise RuntimeError('must not run')")
+            with open(os.path.join(tmpdir, "real.py"), "w") as f:
+                f.write("print('ok')")
+
+            found = discover_runnable_files(tmpdir)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+        self.assertEqual(found, ["real.py"])
 
 
 class TestFindDependencyFiles(unittest.TestCase):

@@ -34,8 +34,24 @@ _INSTALL_TIMEOUT = 300  # matches apply.DEFAULT_TIMEOUT's reasoning
 # one found is actually used -- see _install_dependencies.
 DEPENDENCY_FILENAMES = ["requirements.txt", "pyproject.toml", "setup.py", "environment.yml", "Pipfile"]
 
-# Directories never descended into: VCS/cache/venv noise, never a real entrypoint.
-_EXCLUDED_DIRS = {".git", "__pycache__", ".venv", "venv", ".repair_venvs", "node_modules", ".ipynb_checkpoints"}
+# Directories never descended into: VCS/cache/venv noise, never a real
+# entrypoint. Name-based exclusion alone can never be complete -- there's
+# no naming convention people are required to follow for a venv folder
+# (real example found: "myenv") -- so this list is a fast-path/second
+# safety net on top of the structural check in _is_venv_dir below, not the
+# primary defense. "site-packages"/"conda-meta" catch conda-style
+# environments, which don't have a pyvenv.cfg to detect structurally.
+_EXCLUDED_DIRS = {
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".repair_venvs",
+    "node_modules",
+    ".ipynb_checkpoints",
+    "site-packages",
+    "conda-meta",
+}
 
 
 @dataclass
@@ -68,16 +84,29 @@ def _is_excluded_dir(name: str) -> bool:
     return name in _EXCLUDED_DIRS or name.startswith(".")
 
 
+def _is_venv_dir(path: str) -> bool:
+    """Structural venv detection, independent of what the folder is named.
+    Every virtual environment created by the stdlib `venv` module or
+    `virtualenv` has a `pyvenv.cfg` file directly inside it -- this is what
+    actually catches a venv named "myenv" (or "env", "my_virtualenv", ...)
+    that the name-based _EXCLUDED_DIRS list was never going to anticipate.
+    """
+    return os.path.isfile(os.path.join(path, "pyvenv.cfg"))
+
+
 def discover_runnable_files(repo_path: str) -> list[str]:
     """`.py` and `.ipynb` files under repo_path, excluding hidden/venv/cache
     directories and obvious non-entrypoints (setup.py itself, test files).
     Returns paths relative to repo_path, sorted for deterministic output.
     Kept intentionally simple: over-filtering is worse than running a few
-    extra files, per the task's own guidance.
+    extra files, per the task's own guidance -- except for venvs, which
+    are worth being thorough about (see _is_venv_dir): descending into one
+    doesn't just add "a few extra files," it can add hundreds of unrelated
+    third-party library files that look like real failures but aren't.
     """
     found = []
     for root, dirs, files in os.walk(repo_path):
-        dirs[:] = [d for d in dirs if not _is_excluded_dir(d)]
+        dirs[:] = [d for d in dirs if not _is_excluded_dir(d) and not _is_venv_dir(os.path.join(root, d))]
         for fname in files:
             if fname == "setup.py":
                 continue

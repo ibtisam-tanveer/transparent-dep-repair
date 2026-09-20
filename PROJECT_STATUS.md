@@ -105,7 +105,7 @@ actual evaluation once that work resumes.
 
 ## Verification
 
-- **146/146 tests passing** (118 prior + 28 new from Repo Foundation, incl. the `analyze_repo_url` follow-up), both
+- **149/149 tests passing** (118 prior + 31 new from Repo Foundation, incl. `analyze_repo_url` and the venv-detection fix), both
   with `SKIP_NETWORK_TESTS=1` (123 run, 16 correctly skipped) and fully
   online locally (~142s, including real venv/install cycles for `pip
   install -r requirements.txt` and a real `pyproject.toml`-declared package).
