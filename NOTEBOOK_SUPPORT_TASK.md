@@ -1,178 +1,228 @@
-# Task: Notebook Support — run the loop against `.ipynb` files
+# Task: Notebook Support — run and repair `.ipynb` notebooks
 
-> **Status: DRAFT**, written by Claude following `PROJECT_STATUS.md`'s
-> "Suggested next step," not supplied by the supervisor. Treat the design
-> decisions below as proposed, not settled — confirm with the supervisor
-> before or during implementation, the same way `PHASE3_ADDENDUM.md` and
-> `dataset/NOTES.md` flagged their own open calls.
+> **Build-order position:** this is the step **after Phase 5** and **before the
+> deferred Phase 4**, i.e. 1 → 2 → 3 → 5 → **Notebook Support** → 4. It is required
+> before any evaluation, because the primary evaluation dataset (the GigaScience
+> 2023 corpus) is entirely `.ipynb` notebooks.
 
-## Context (read first)
+## Project context (read first)
 
-Phases 1, 2, 3, and 5 are complete and `.py`-only, by deliberate choice —
-see `PHASE5_TASK.md`'s "Upcoming dependency" note: the LLM repair logic
-needed to be easy to build and test on plain scripts first. That choice is
-now paid off; this task is the deliberate next step it deferred.
+We are building a tool for **AI-Driven Transparent Repair of Software Dependency
+Configurations**. The loop is: **run → diagnose → propose fix → apply → re-run to
+verify → explain.** It works for `.py` scripts through Phases 1–5, all in the
+`repair_tool/` package:
+- `runner.py` → `run_project(path, timeout=60, python_exe=None) -> RunResult(ok, returncode, stdout, stderr)`
+- `diagnose.py`, `pypi.py`, `venv_manager.py`, `repair.py`, `apply.py`, `llm.py`, `loop.py`
+- Phase 3 fixes missing packages; Phase 5 fixes hard cases via an LLM (code fix vs.
+  environment fix, verified by re-running, keeps the winner, records which won).
 
-**Why this blocks everything after it**: the evaluation dataset
-(`dataset/dependency_failures.csv`, 1,362 rows from the GigaScience
-reproducibility corpus) is entirely `.ipynb` notebooks. No dataset
-evaluation can start until the tool can run, diagnose, and repair a
-notebook the same way it does a script.
+Everything so far assumes the target is a `.py` file. This task adds `.ipynb`
+support so the same loop works on notebooks.
 
-**Build order**: `1 → 2 → 3 → 5 → Notebook Support → 4` (see
-`PROJECT_STATUS.md`). Phase 4 (metadata verification) still comes after
-this, deliberately.
+## The core idea (keep this simple)
 
-**A related, separate concern — do not fold into this task's scope**:
-`PROJECT_STATUS.md` flags a real limitation found during Phase 5 hardening
-— a code fix that introduces a new import (e.g. `06`'s `from imageio import
-imread`) can't succeed, because nothing installs the new import. This will
-very likely surface *more* often once real notebooks are in play (the
-GigaScience corpus is full of "replace a removed API with a different
-library's function" cases). This task does not fix it — that needs its own
-design decision — but whoever scopes the eventual fix should know it will
-matter more, not less, once this task lands.
+Downstream stages (diagnose, repair, verify) already operate on a `RunResult`'s
+error text, **not** on the file format. So the whole task reduces to: **make a
+notebook produce a `RunResult` whose `stderr` looks like a normal Python error**,
+and make code-fixes apply to notebook cells. Once a `.ipynb` can yield a
+`RunResult`, `diagnose.py` classifies it and Phases 3/5 repair it, with no changes
+to their logic. This is an **adapter at the front of the pipeline**, not a rewrite.
 
 ## Goal
 
-Extend the existing loop — run → diagnose → propose → apply → verify —
-to accept a `.ipynb` file as `repair()`'s target, producing the same kind
-of `RepairResult`/`Attempt`/transparency-report data a `.py` target does,
-without duplicating or forking the loop's control flow.
+1. `run_project` accepts a `.ipynb` path, executes it in the isolated venv, and
+   returns a `RunResult` whose `stderr` carries the first failing cell's real
+   Python exception (e.g. `ModuleNotFoundError: No module named 'seaborn'` or
+   `AttributeError: module 'numpy' has no attribute 'float'`) in the same shape
+   `diagnose.py` already parses.
+2. Code-fix application (Phase 5) works on notebook cell source, on a working copy,
+   never mutating the original `.ipynb`.
+3. The full run → diagnose → repair → verify loop fixes a broken notebook
+   end-to-end, exactly as it does for scripts.
 
-## The strategy (proposed; confirm before building)
+## How to execute a notebook (design guidance)
 
-**Reuse everything that doesn't need to change.** `diagnose.py`,
-`repair.py` (`propose`, `propose_hard_case`, `STRATEGY_ORDER`), `llm.py`,
-`pypi.py`, and `venv_manager.py` (venv creation/reuse, `get_workspace_copy`
-— already extension-agnostic, no code change needed) all operate on
-already-abstracted inputs (error text, a `Diagnosis`, a package name) and
-need **zero changes**. Only two things are genuinely notebook-specific:
-**running** the target and **applying a code edit** to it.
+**Execute the notebook natively; do not just convert it to a script.** Executing it
+cell by cell in a kernel matches how the GigaScience study ran notebooks (important
+for comparability) and preserves per-cell error structure. Converting to `.py`
+first is a rejected alternative: it loses cell boundaries and can misreport where or
+why a notebook failed.
 
-1. **Running a notebook and capturing the result as a `RunResult`.**
-   New module `repair_tool/notebook.py`:
-   ```python
-   def run_notebook(path: str, timeout: int = 60, python_exe: str | None = None) -> RunResult
-   ```
-   Same return shape as `runner.run_project` — `ok`, `returncode`,
-   `stdout`, `stderr` — so every downstream consumer (`diagnose_result`,
-   the loop's stall-detection, everything) works unmodified. Internally:
-   execute the notebook's cells in order using `nbclient.NotebookClient`
-   (proposed dependency — actively maintained, doesn't require a full
-   Jupyter install, used programmatically rather than shelling out to the
-   `jupyter` CLI), with the kernel pointed at `python_exe` (the target's
-   isolated venv, same as `.py` targets). On a cell raising an exception,
-   `nbclient` raises `CellExecutionError`, carrying the exception
-   name/value/traceback — map that into `RunResult.stderr` in the same
-   shape a subprocess traceback already has, so `diagnose.py`'s existing
-   regex-based classification needs no notebook-specific logic at all.
-   `ok=True`/`returncode=0` if every cell runs; synthetic `returncode=-1`
-   for the timeout/malformed-notebook failure cases, matching
-   `runner.run_project`'s existing convention for synthetic failures.
+### Stop at the first error — catch the raised exception; do NOT use `allow_errors`
 
-2. **Applying a code edit to a notebook.**
-   New function, likely in `notebook.py`:
-   ```python
-   def apply_code_edit(edits: list[dict], workspace_path: str) -> tuple[bool, str]
-   ```
-   Same signature and same "never crash, a non-matching `find` is a clean
-   failure" contract as `apply.apply_code_edit`. Internally: parse the
-   `.ipynb` JSON (via `nbformat`, proposed dependency), search **all** code
-   cells' source for each edit's `find` string (not just one predetermined
-   cell — the LLM is given the whole notebook's failing cell context, but
-   an edit could legitimately target an earlier cell, e.g. an import cell),
-   apply the first match, write the notebook back out preserving its
-   structure (`nbformat.write`). If `find` doesn't appear verbatim in *any*
-   cell, that's a failure, exactly like the `.py` case.
+Execute with the driver's **default** behaviour, which stops at the first failing
+cell and raises `CellExecutionError`. Do **not** run with `allow_errors=True`.
+Reasoning: the semantics here are first-error, top-to-bottom, so executing the
+remaining cells only to discard their results is wasted time **and** unwanted side
+effects — a later cell could still write files, hit the network, or run for a long
+time even though we will never look at its output. Stopping at the first error is
+both cheaper and safer.
 
-3. **Dispatch in `loop.py`, not a forked loop.** `repair()` picks
-   `run_project`/`apply.apply_code_edit` vs. `notebook.run_notebook`/
-   `notebook.apply_code_edit` based on the target's file extension, at the
-   two call sites that currently hard-code the `.py`-shaped functions.
-   Everything else in `repair()` — the outer loop, `MAX_ATTEMPTS`, stall
-   detection, the hard-case orchestration, the workspace-copy-from-the-start
-   discipline — is unchanged and shared between both file types.
+- On success (no cell raises): `RunResult.ok = True`, `stdout` = collected stream
+  outputs, empty `stderr`.
+- On the first failing cell: build `stderr` from the error's **structured fields** —
+  `ename` (exception class) and `evalue` (message) — as `f"{ename}: {evalue}"`,
+  followed by the traceback. Prefer the structured `ename`/`evalue` over scraping
+  the exception's string message. **Fallback:** if the installed driver version does
+  not expose `ename`/`evalue` on the raised `CellExecutionError`, read them from the
+  failed cell's error output in the executed notebook object instead. Confirm which
+  path is available against the actual driver version in use.
+- Enforce a timeout (reuse the existing contract: a timed-out notebook is a failed
+  `RunResult`, never a raised exception). Use a sentinel `returncode` for notebook
+  runs and document it, consistent with Phase 1's handling of synthetic cases.
 
-## Where it plugs in
+### Strip ANSI escape codes when building `stderr` (required)
 
-- `repair_tool/notebook.py` (new): `run_notebook`, `apply_code_edit`, and
-  whatever notebook-JSON helpers they need.
-- `repair_tool/loop.py`: extend the two dispatch points (`run_project`/
-  `apply_code_edit` calls) to branch on `path.endswith(".ipynb")`.
-- `pyproject.toml`: add `nbformat` and `nbclient` as core dependencies
-  (same reasoning as `openai`/`python-dotenv` in Phase 5 — needed for the
-  tool to function, but keep the imports isolated to `notebook.py` so the
-  rest of the tool stays importable/testable without them, same pattern
-  `llm.py` already established).
+Jupyter tracebacks are colorized — the `traceback` (and sometimes `evalue`) contain
+terminal escape codes such as `\x1b[0;31m`. `diagnose.py`'s classifier expects a
+clean `ExceptionName: message` line; an ANSI-prefixed line will **silently fail to
+match and misclassify as `unknown`** rather than crash — which would quietly inflate
+the "unknown" rate across the whole dataset and send you debugging the taxonomy when
+the real cause is color codes. So **strip ANSI escape sequences** from the
+reconstructed `stderr` before returning the `RunResult`. Add a dedicated test using
+a real colorized traceback to prove classification still works.
+
+### First-error semantics
+
+Execute top-to-bottom; "the error" is the first cell that raises. The tool fixes
+that, re-runs, and may reveal the next cell's error — the same layered behaviour
+Phases 3 and 5 already handle. Do not attempt out-of-order execution.
+
+## Where the execution libraries live (get this split right)
+
+Be precise about placement — getting it wrong either bloats every throwaway venv or
+breaks execution:
+
+- **`nbclient` / `nbformat` are the driver**, used by `repair_tool` itself to
+  orchestrate execution and read/write notebooks. They belong in **`repair_tool`'s
+  own dependencies** (in `pyproject.toml`, like `openai`), **not** in each target
+  venv.
+- **`ipykernel` must be installed *into each target venv***, because that is what
+  launches a kernel running against that venv's packages — which is what makes
+  installing a fix into the venv actually affect the notebook run.
+- **Both halves are required:** installing `ipykernel` in the venv is not enough on
+  its own — the driver must also be **configured to launch that venv's kernel** (via
+  the kernel's executable / kernel name), not the host's. Confirm the notebook
+  actually runs under the venv's interpreter (see the kernel-isolation test below),
+  not under the host Python.
+
+## Deliverables
+
+| File | Change |
+|---|---|
+| `repair_tool/notebook.py` (new) | Execute a `.ipynb` in a given venv python, catch the first cell error, strip ANSI, return a `RunResult`; plus helpers to read/write notebook cell source for code fixes |
+| `repair_tool/runner.py` (extended) | `run_project` detects `.ipynb` by extension and dispatches to `notebook.py`; `.py` path unchanged |
+| `repair_tool/apply.py` (extended) | `apply_code_edit` handles `.ipynb`: find/replace within cell source strings on a working copy (same clean-failure-on-non-match rule as for `.py`) |
+| `repair_tool/venv_manager.py` (extended) | Ensure each target venv has `ipykernel`, and that the driver targets that venv's kernel |
+| `pyproject.toml` (extended) | Add `nbclient`/`nbformat` as `repair_tool` dependencies (driver only) |
+| `broken_examples/notebooks/` (new) | Small broken `.ipynb` fixtures mirroring the `.py` ones (see Tests) |
+| `tests/test_notebook.py` (new) + extensions | Notebook execution, ANSI stripping, error extraction, code-fix-on-cells, kernel-is-the-venv's, end-to-end |
+
+## Isolation and the original file
+
+- Notebooks execute in the isolated venv. Install `ipykernel` into the venv when the
+  target is a notebook; the driver runs from `repair_tool`'s own environment.
+- **Never mutate the original `.ipynb`.** Work on a copy in the venv workspace, as
+  Phase 5 already does for scripts.
+
+## Scope: which notebooks are in scope
+
+In scope: notebooks that can be executed top-to-bottom and fail because of a
+dependency/environment problem. Out of scope (report honestly as "not runnable /
+skipped", do not crash): notebooks that require external data files, credentials,
+network services, GPUs/special hardware, user interaction, or that exceed the
+timeout. This mirrors the project-selection criteria in the vision document; the
+point here is graceful handling, not fixing everything.
+
+## Required behaviour / interface
+
+```python
+from repair_tool.runner import run_project
+from repair_tool.diagnose import diagnose_result
+from repair_tool.loop import repair
+
+# a broken notebook yields a parseable RunResult (ANSI stripped, classifiable)
+r = run_project("broken_examples/notebooks/missing_package.ipynb")
+assert r.ok is False
+assert diagnose_result(r).kind == "missing_module"
+
+# and the full loop fixes it end-to-end in a venv
+result = repair("broken_examples/notebooks/missing_package.ipynb")
+assert result.fixed is True
+```
 
 ## Constraints
 
-- Isolation, never-mutate-the-original, and "verify by actually re-running"
-  all still apply, unchanged, to notebooks.
-- `venv_manager.get_workspace_copy` already works file-extension-agnostically
-  (`shutil.copyfile` + `os.path.basename`) — confirm this with a test, but
-  expect no code change needed there.
-- No changes to `diagnose.py`'s classification rules — a notebook's
-  captured traceback must be classified by the exact same logic a script's
-  is, since the whole point of this design is that `RunResult`/`Diagnosis`
-  don't know or care what kind of file produced them.
-- Do not attempt to fix the "correct fix, missing import" gap here (see
-  Context above) — out of scope, flag it in `PHASE4_TASK.md` or wherever it
-  eventually gets addressed instead.
+- Do not change diagnose/repair/LLM logic — this task only makes notebooks produce a
+  `RunResult` and makes code edits apply to cells. If a downstream stage needs
+  changing to work on notebooks, the adapter is not producing a clean `RunResult`;
+  fix the adapter, not the downstream stage.
+- Keep every existing test green; `.py` behaviour must be identical.
+- Keep the timeout / never-raises contract, isolation, and never-mutate-the-original
+  guarantees.
+- The only new branch in `run_project` is the `.py` vs `.ipynb` detection.
 
 ## Tests
 
-- Offline (no kernel execution, no network): notebook JSON parsing/editing
-  logic — `apply_code_edit` finding/replacing across multiple cells,
-  failing cleanly when `find` isn't present anywhere, never mutating the
-  original file (mirroring `tests/test_apply.py`'s existing coverage for
-  the `.py` case).
-- A small number of real, hand-made broken `.ipynb` files (analogous to
-  `broken_examples/`) — at minimum, a notebook version of one already-known
-  case (e.g. a notebook that does `np.float(3.14)`) to confirm the whole
-  loop reaches the same `FIXED` outcome via `nbclient` execution that the
-  `.py` version already reaches via subprocess execution.
-- One guarded real end-to-end test (real venv, real kernel execution, and
-  where a hard case is involved, a real LLM call) — same
-  `SKIP_NETWORK_TESTS`/missing-key-skips-cleanly pattern as every other
-  guarded test in this codebase.
-- Do not weaken any Phase 1–3/5 test — the `.py` path must behave
-  identically to how it does today.
+- Fixtures under `broken_examples/notebooks/`: at least a missing-package notebook
+  and a removed-API notebook (`np.float`), each a couple of cells so "first failing
+  cell" is exercised.
+- Offline (no network):
+  - notebook executes, first cell error extracted into a `RunResult`,
+    `diagnose_result` classifies it correctly;
+  - **an ANSI-colorized traceback still classifies correctly** (dedicated test);
+  - a code fix applies to the right cell on a copy and the original is byte-for-byte
+    unchanged after `repair()`;
+  - a notebook needing a missing data file is reported "not runnable", not a crash.
+- **Kernel-isolation test:** a notebook importing a package present only in the
+  target venv succeeds; the same notebook importing a package absent from the venv
+  fails — proving execution uses the venv's kernel, not the host.
+- Guarded (network + real venv/LLM): end-to-end repair of the missing-package
+  notebook (install) and the `np.float` notebook (Phase 5 code fix).
+- Do not weaken any Phase 1–5 tests.
 
 ## Definition of done
 
-- `repair("some_notebook.ipynb")` reaches `RepairResult(fixed=True, ...)`
-  for a notebook whose only problem is a resolvable missing package or an
-  LLM-fixable removed/changed API, verified by actually re-executing the
-  notebook, not by inspecting its cell outputs after the fact.
-- A notebook that can't be fixed (or can't even be parsed/loaded) is
-  reported honestly — same "not handled yet" / "not fixed" discipline as
-  the `.py` path, never a crash, never a false success.
-- The original `.ipynb` input file is never modified — same
-  workspace-copy discipline as `.py` targets.
-- `diagnose.py`, `repair.py`, `llm.py`, `pypi.py`, `venv_manager.py` need
-  **no changes** — if implementation reveals one of them does need a
-  change, that's a signal the notebook-specific logic leaked into the
-  wrong layer and the design should be revisited before proceeding.
-- Full suite (Phases 1–3, 5, this task) green locally and in CI, with the
-  same offline/guarded-live split as every prior phase.
+- `run_project` on a broken `.ipynb` returns a `RunResult` whose `stderr` is clean
+  (ANSI-stripped) and classifiable by `diagnose.py`.
+- Execution stops at the first failing cell (no `allow_errors`), via a caught
+  exception, using structured `ename`/`evalue` (or the documented fallback).
+- Notebooks run under the **target venv's** kernel, proven by the isolation test.
+- `nbclient`/`nbformat` are `repair_tool` deps; only `ipykernel` is installed into
+  target venvs.
+- The full loop fixes a missing-package notebook (Phase 3 path) and a removed-API
+  notebook (Phase 5 path) end-to-end, verified by re-executing the notebook.
+- Code fixes modify the correct cell on a working copy; the original `.ipynb` is
+  never modified.
+- Notebooks that can't be run for out-of-scope reasons are reported honestly.
+- `.py` behaviour and all prior tests unchanged; full suite green offline and (with
+  a key) online.
+
+## Continuity note — the "correct fix, missing import" gap (`06` finding)
+
+`PROJECT_STATUS.md` records a known limitation from `broken_examples/06_scipy_imread.py`:
+a code fix that is *semantically correct* but introduces a **new import** (e.g.
+`scipy.misc.imread` → `imageio.imread`) fails verification because the tool cannot
+install the newly-introduced package, and the report currently can't distinguish
+"wrong fix" from "right fix, needs one more package." This is **out of scope for
+this task**, but it is expected to appear **much more often on real notebooks** than
+on the handful of `.py` examples, since "rewrite the code *and* install what the
+rewrite needs" is a common real-world fix. Keep it flagged in `PROJECT_STATUS.md`;
+do not silently drop it — it will matter for interpreting evaluation results.
 
 ## Out of scope (do NOT do here)
 
-- No dataset evaluation run — this task only makes evaluation *possible*,
-  it doesn't perform it. Evaluation still waits on the supervisor's
-  dataset/benchmark decisions (the 2026-08-20 email).
-- No fix for the "correct fix, missing import" gap (see Context).
-- No Phase 4 (metadata verification) work.
+- No dataset evaluation run yet (that is the next step, once this lands, against the
+  2023 GigaScience corpus).
+- No out-of-order cell execution, no partial-notebook heuristics.
+- No dependency-failure taxonomy work (separate methodology document).
+- No Phase 4 metadata verification (still deferred).
+- No fix for the `06` "correct fix, missing import" gap (noted above; separate work).
 - No UI.
-- Multi-kernel support (R notebooks, Julia notebooks, etc.) — the
-  GigaScience corpus's Python notebooks are the target; don't generalize
-  beyond what's needed for that.
 
 ## Suggested manual check
 
 ```bash
-# once implemented:
-python -m repair_tool.loop some_broken_notebook.ipynb
+python -m repair_tool.loop broken_examples/notebooks/missing_package.ipynb   # FIXED (install)
+python -m repair_tool.loop broken_examples/notebooks/numpy_float.ipynb        # FIXED (Phase 5 code fix)
 ```
