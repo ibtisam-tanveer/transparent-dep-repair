@@ -14,6 +14,15 @@ run the project -> read the error -> propose a fix -> apply it -> re-run to veri
 
 This repo is built phase by phase, one link of that loop at a time.
 
+**Scope note (2026-09-20):** the supervisor has directed the thesis toward
+whole-**repository** repair (not just single files), a hybrid
+classical+LLM strategy, and an agentic architecture — see `NEW_DIRECTION.md`.
+The exact novel contribution and build order are still being confirmed;
+only the repo-analysis foundation below is being built so far, since it's
+needed under every version of that direction. Everything in Phases 1-5 and
+Notebook Support survives unchanged as the engine the repo-level work sits
+on top of.
+
 ## Phase 1 — run a project and capture its error
 
 `repair_tool/runner.py` runs a target `.py` file **as a subprocess** (never
@@ -283,17 +292,72 @@ actually launches a kernel using that venv's packages — getting this split
 right is what makes "installing a fix into the venv" actually affect the
 notebook run. Test with `python -m unittest tests.test_notebook -v`.
 
+## Repo Foundation — run and diagnose a whole repository
+
+The first layer of the new repo-level direction (`NEW_DIRECTION.md`,
+`REPO_FOUNDATION_TASK.md`). Given a folder, `analyze_repo()` sets up **one
+shared isolated environment for the whole repo** (not one per file),
+installs whatever dependency declaration it can find, discovers every
+`.py`/`.ipynb` file, runs each one in that shared environment, and
+classifies every failure — reusing `runner.run_project` (which already
+dispatches to `.ipynb` via `notebook.run_notebook`) and `diagnose.py`
+completely unchanged.
+
+**This phase only runs and diagnoses — it does not repair anything at repo
+scale.** Repo-scale repair, the classical+LLM hybrid, and an agentic
+architecture are the next layers, explicitly on hold until the supervisor
+confirms the novel contribution and build priority.
+
+```python
+from repair_tool.repo import analyze_repo
+
+result = analyze_repo("path/to/some/repo")
+print(result.summary)  # e.g. {"total": 12, "ran": 9, "failed": 3, "failures_by_kind": {...}}
+```
+
+CLI:
+
+```bash
+python -m repair_tool.repo <path-to-repo> [--timeout SECONDS]
+# or: repair-tool-analyze-repo <path-to-repo>
+```
+
+**One shared venv needed no changes to `venv_manager.py`** — `get_venv_python()`
+just hashes whatever path string it's given, so passing it the repo root
+instead of a single file's path already gives one consistent venv reused
+across every file in that repo.
+
+**Not every dependency format is pip-installable on its own.**
+`requirements.txt` and a package-declaring `pyproject.toml`/`setup.py` are;
+`environment.yml` (conda) and `Pipfile` (pipenv) aren't, without tooling
+this project doesn't carry — those are recognised and reported ("found but
+not installed"), not silently ignored or treated as a hard failure. Many
+`pyproject.toml` files are just tool config (ruff/black/pytest settings)
+with nothing to install — `_pyproject_declares_a_package()` checks for a
+real `[project]`/`[tool.poetry]` section before attempting `pip install .`.
+
+**The pass/fail verdict for a whole repo is a caller-supplied rule, not a
+hard-coded definition** — `analyze_repo(path, pass_rule=lambda r: ...)`
+sets `result.passed`; without one, `result.passed` stays `None` and the
+per-file results + `summary` counts are still fully available. This is
+deliberate: what counts as "the repo runs" is a decision the supervisor may
+set later, and it must be trivial to change without touching the analysis
+itself.
+
 ## Roadmap (out of scope so far, tracked here for context)
 
+- **Repo-scale repair, the classical+LLM hybrid, and agentic orchestration**
+  (`NEW_DIRECTION.md`) — on hold until the supervisor confirms the novel
+  contribution and build priority.
 - **Phase 4** (deferred, not dropped — see `PHASE5_TASK.md`'s "Build order"
   note) — verify each fix against authoritative package metadata beyond
   existence/name, once there's more to harden.
 - **The "correct fix, missing import" gap** (found via `06_scipy_imread.py`
   during Phase 5 hardening) — a code fix that introduces a new import can't
   succeed, since nothing installs it; see `PROJECT_STATUS.md`'s flagged
-  section. Expected to matter more on real notebooks, not less.
-- **Dataset evaluation** — waits on the supervisor's dataset/taxonomy
-  decisions (2023 GigaScience rerun; see `PROJECT_STATUS.md`).
+  section. Expected to matter more at repo scale, not less.
+- **Dataset evaluation, the failure taxonomy, and the 2023 GigaScience
+  rerun** — all paused behind the re-scope; see `PROJECT_STATUS.md`.
 - **Later** — assemble the full transparency report (`alternatives` is now
   real for hard cases; richer fields like a full package-metadata
   provenance trail come with Phase 4) that is this thesis's core
@@ -322,10 +386,15 @@ tests/test_loop.py            Phase 3 + 5 — repair() loop logic (offline, mock
 repair_tool/notebook.py       Notebook Support deliverable — run_notebook, edit_notebook_cells
 broken_examples/notebooks/    small .ipynb fixtures mirroring the .py set
 tests/test_notebook.py        Notebook Support — dispatch, error extraction, kernel isolation, end-to-end
+repair_tool/repo.py            Repo Foundation deliverable — analyze_repo, RepoResult, FileResult, CLI
+tests/fixtures/sample_repo/                small offline-testable repo fixture (no deps, one good/bad file, a notebook)
+tests/fixtures/sample_repo_with_deps/      repo fixture with a real requirements.txt (network-guarded)
+tests/test_repo.py            Repo Foundation — discovery, dependency detection/install, analyze_repo (offline + guarded)
 tests/fixtures/hangs.py       infinite loop, used only to test the timeout path
 pyproject.toml                packaging + core deps (openai, python-dotenv, nbclient, nbformat) + dev-only extras (numpy, pandas, ipykernel, ...)
 .github/workflows/tests.yml   CI: runs all test suites on every push (network tests skipped)
 dataset/                      independent data track — see DATASET_SUMMARY.md
+NEW_DIRECTION.md              the repo-level/hybrid/agentic scope change — read this first for anything repo-level
 ```
 
 `runner.py`/`diagnose.py` moved into the `repair_tool/` package as Phase 3's
