@@ -15,7 +15,9 @@ far), [PHASE5_IMPROVEMENTS_SUMMARY.md](PHASE5_IMPROVEMENTS_SUMMARY.md)
 [REPO_FOUNDATION_SUMMARY.md](REPO_FOUNDATION_SUMMARY.md),
 [AGENTIC_DIRECTION_AND_FIRST_TASK.md](AGENTIC_DIRECTION_AND_FIRST_TASK.md)
 (the staged agentic build plan) + [AGENT_FIRST_TASK_SUMMARY.md](AGENT_FIRST_TASK_SUMMARY.md),
-and [DATASET_SUMMARY.md](DATASET_SUMMARY.md) (the independent data track,
+[TASK_provenance_and_report.md](TASK_provenance_and_report.md) +
+[PROVENANCE_REPORT_SUMMARY.md](PROVENANCE_REPORT_SUMMARY.md), and
+[DATASET_SUMMARY.md](DATASET_SUMMARY.md) (the independent data track,
 currently paused — see below).
 
 ## ⚠ Scope pivot (2026-09-20, refined 2026-10-03) — read `NEW_DIRECTION.md` first
@@ -28,9 +30,11 @@ repo-level scope and `AttributeError`-in-taxonomy are confirmed; the exact
 novel contribution, build priority, which classical tool to study, and the
 model/API key details are still pending written confirmation.
 `AGENTIC_DIRECTION_AND_FIRST_TASK.md` (2026-10-03) then staged the agentic
-layer into small, independently-testable steps — **built so far under the
-new direction: the repo-analysis foundation, and now the first agentic
-step** (a single LLM agent choosing tools, on single files). Both were
+layer into small, independently-testable steps, and
+`TASK_provenance_and_report.md` (2026-10-03) sharpened the first step's
+trust model — **built so far under the new direction: the repo-analysis
+foundation, a single LLM agent choosing tools (on single files), and a
+two-axis provenance model + the first transparency report**. All three were
 deliberately the next-safest thing to build regardless of how the pending
 items resolve. Everything from Phases 1-5 + Notebook Support survives
 unchanged as the engine every later layer sits on top of.
@@ -45,7 +49,7 @@ run the project -> read the error -> propose a fix -> apply it -> re-run to veri
 ```
 
 **Build order so far (deliberate, not phase-numbered order):**
-`Phase 1 → Phase 2 → Phase 3 → Phase 5 → Notebook Support → Repo Foundation → Agentic first task`.
+`Phase 1 → Phase 2 → Phase 3 → Phase 5 → Notebook Support → Repo Foundation → Agentic first task → Provenance & report`.
 Phase 4 was deferred (see `PHASE5_TASK.md`'s "Build order" note) and is now
 further behind repo-scale repair, the hybrid, and the remaining agentic
 layers per `NEW_DIRECTION.md` — its exact position depends on the pending
@@ -62,7 +66,8 @@ priority decision.
 | 5 (hardening) | same files, extended | done, committed+pushed (`2fb8853` + `dce5ce9`) | Isolates the two candidate strategies (snapshot/restore, incl. a real bug fixed), records model identity, adds a non-numpy/pandas example. **Surfaced the `06` limitation — see below.** |
 | Notebook Support | `repair_tool/notebook.py` + extensions | done, committed+pushed (`0d56265`) | Extends the loop to `.ipynb`. **Found and fixed two real bugs during verification** — a `KernelManager.kernel_cmd` attribute silently never consulted (every notebook was secretly executing under this tool's own dev interpreter) and a kernel/ZMQ-socket resource leak. See `NOTEBOOK_SUPPORT_SUMMARY.md`. |
 | Repo Foundation | `repair_tool/repo.py` | done, committed+pushed (`7356651`/`7b22f43`, venv-detection fix `a589968`) | `analyze_repo()`: one shared venv per repo, dependency-file detection + best-effort install, discovers and runs every `.py`/`.ipynb` file, per-file diagnosis, configurable pass rule. `analyze_repo_url()` added as a follow-up: clones a git URL into a throwaway temp dir, analyzes it, always deletes the clone. Reuses `runner`/`notebook`/`diagnose`/`venv_manager` entirely unchanged. **Run and diagnose only — no repair at repo scale.** See `REPO_FOUNDATION_SUMMARY.md`. (Commit hashes changed from earlier reports after a history rewrite removed co-author trailers; content is unchanged.) |
-| Agentic first task | `repair_tool/agent_tools.py`, `repair_tool/agent.py` (new) | done, not yet committed | `agent_repair()`: a single ReAct-style tool-calling LLM agent replaces `loop.py`'s fixed propose→apply→verify order with the model *choosing* among 6 tools (`run_target`, `diagnose_error`, `lookup_package`, `install_package`, `edit_code`, `verify`), one new, parallel entry point — `loop.py` is untouched. Every call is recorded as a provenance-tagged `TraceStep` (`metadata_verified`, `execution_verified`, `llm_unverified`, combined where applicable) — the seed of the transparency report. Verified for real on both `01` (install) and `02` (two rounds: install then code-edit). See `AGENT_FIRST_TASK_SUMMARY.md`. |
+| Agentic first task | `repair_tool/agent_tools.py`, `repair_tool/agent.py` | done, committed+pushed (`2a2efd5`/`53ffbc2`) | `agent_repair()`: a single ReAct-style tool-calling LLM agent replaces `loop.py`'s fixed propose→apply→verify order with the model *choosing* among 6 tools (`run_target`, `diagnose_error`, `lookup_package`, `install_package`, `edit_code`, `verify`), one new, parallel entry point — `loop.py` is untouched. Verified for real on both `01` (install) and `02` (two rounds: install then code-edit). See `AGENT_FIRST_TASK_SUMMARY.md`. |
+| Provenance & report | `repair_tool/agent.py` (extended), `repair_tool/report.py` (new) | done, not yet committed | Replaced the single `provenance` tag with two independent axes, `grounding` (`metadata_grounded`/`llm_proposed`/`deterministic`, `kg_grounded` reserved) and `verification` (`verified`/`unverified`/`n/a`), plus a derived `confidence`. Fixes a real honesty gap: a well-founded `numpy` install now reads `metadata_grounded`+`unverified` instead of the misleading `llm_unverified` when a later check reveals a *different* failure. `report.py`'s `build_report()` renders the first human-readable transparency report (plain text) from the trace, including actions that didn't finish the job or failed outright — nothing hidden. **Found and fixed a real bug during verification**: an already-passing target confirmed via `run_target` alone wasn't being credited the same as one confirmed via `verify`, even though they're the same check. See `PROVENANCE_REPORT_SUMMARY.md`. |
 | Remaining agentic layers (multi-agent, classical KG tool, repo-scale agentic repair), repo-scale repair, hybrid beyond PyPI+execution | — | **on hold** | Explicitly paused pending the supervisor's confirmation of the novel contribution, build priority, and which classical tool to study (`NEW_DIRECTION.md`); staged order for when it resumes is in `AGENTIC_DIRECTION_AND_FIRST_TASK.md`. |
 | 4 | — | **deferred, not dropped** | Verify a fix against authoritative package metadata beyond existence/name. |
 | — | — | in progress | Full transparency report (Vision Doc §7) — `alternatives` now carries real content (Phase 5); richer package-metadata provenance comes with Phase 4. |
@@ -112,22 +117,23 @@ actual evaluation once that work resumes.
 
 ## Verification
 
-- **169/169 tests passing** (149 prior + 20 new from the Agentic first task:
-  13 for `agent_tools.py`'s wrappers, 7 for `agent.py`'s tool-calling loop —
-  6 offline/mocked, 1 real end-to-end), both with `SKIP_NETWORK_TESTS=1`
-  (151 run, 18 correctly skipped) and fully online locally (including one
-  real multi-turn agent run on top of everything from prior phases).
+- **179/179 tests passing** (149 prior + 20 from the Agentic first task +
+  10 new from Provenance & report: 1 agent regression test for the
+  run_target/verify bug, 9 for `report.py`), both with
+  `SKIP_NETWORK_TESTS=1` (160 run, 19 correctly skipped) and fully online
+  locally (~124s, including two real multi-turn agent runs on top of
+  everything from prior phases).
 - All 8 original files in `broken_examples/` produce the correct diagnosis; one documented discrepancy (example 04, sklearn version-dependent, see `PHASE2_SUMMARY.md`).
 - `repair()` verified fixed end-to-end, with a real key, for `01` (Phase 3), `02`/`03`/`04`/`07`/`08`/`09` (Phase 5, real LLM calls), and both notebook fixtures.
-- `agent_repair()` verified fixed end-to-end, with a real key, for `01` (one round: install) and `02` (two rounds: install, then code-edit) — see `AGENT_FIRST_TASK_SUMMARY.md`.
+- `agent_repair()` verified fixed end-to-end, with a real key, for `01` (one round: install) and `02`/`03` (two rounds: install, then code-edit) — see `AGENT_FIRST_TASK_SUMMARY.md` and `PROVENANCE_REPORT_SUMMARY.md`.
 - `05_pandas_append.py`, `06_scipy_imread.py`, and `broken_examples/notebooks/missing_data_file.ipynb` all genuinely, honestly report "not fixed" for real, distinct, documented reasons — never a false success.
-- **Five real bugs found and fixed during verification across the project so far**, none assumed away: (1) LLM JSON responses with unescaped quotes; (2) a downgraded package uninstalled entirely instead of restored during strategy isolation; (3) `KernelManager.kernel_cmd` silently ignored, notebooks secretly running under the wrong interpreter; (4) a kernel/ZMQ-socket resource leak; (5) a fixture-design mistake (not a code bug) where a `setup.py` written only to test discovery-exclusion also got picked up as an installable dependency source and genuinely executed — see `REPO_FOUNDATION_SUMMARY.md`. All caught by testing against real execution, not by inspecting the design.
-- Every "Required behaviour" assertion and "Suggested manual check" from `PHASE1_TASK.md` through `REPO_FOUNDATION_TASK.md`, and every definition-of-done item in `AGENTIC_DIRECTION_AND_FIRST_TASK.md` §4.5, passes.
+- **Six real bugs found and fixed during verification across the project so far**, none assumed away: (1) LLM JSON responses with unescaped quotes; (2) a downgraded package uninstalled entirely instead of restored during strategy isolation; (3) `KernelManager.kernel_cmd` silently ignored, notebooks secretly running under the wrong interpreter; (4) a kernel/ZMQ-socket resource leak; (5) a fixture-design mistake (not a code bug) where a `setup.py` written only to test discovery-exclusion also got picked up as an installable dependency source and genuinely executed; (6) `agent_repair()` not crediting an already-passing project confirmed via a plain `run_target` call the same as one confirmed via `verify`, even though they run the identical check — see `REPO_FOUNDATION_SUMMARY.md` and `PROVENANCE_REPORT_SUMMARY.md`. All caught by testing against real execution, not by inspecting the design.
+- Every "Required behaviour" assertion and "Suggested manual check" from `PHASE1_TASK.md` through `REPO_FOUNDATION_TASK.md`, and every definition-of-done item in `AGENTIC_DIRECTION_AND_FIRST_TASK.md` §4.5 and `TASK_provenance_and_report.md`, passes.
 - CI (`.github/workflows/tests.yml`) runs all suites on Python 3.10 and 3.12 on every push, with `SKIP_NETWORK_TESTS=1` so it stays fast, non-flaky, and free of API cost.
 
 ## Infrastructure
 
-- Git repo: `github.com/ibtisam-tanveer/transparent-dep-repair`. Everything through Repo Foundation is committed and pushed (history was rewritten once since, to drop co-author trailers from every commit message — content unchanged, hashes changed). The Agentic first task (`agent_tools.py`, `agent.py`, tests, this doc's updates) is built and verified but **not yet committed**. Remote uses SSH (was HTTPS with an expiring token) to stop the recurring auth-failure loop.
+- Git repo: `github.com/ibtisam-tanveer/transparent-dep-repair`. Everything through the Agentic first task is committed and pushed (history was rewritten once, right after Repo Foundation, to drop co-author trailers from every commit message — content unchanged, hashes changed). Provenance & report (`agent.py` changes, `report.py`, tests, this doc's updates) is built and verified but **not yet committed**. Remote uses SSH (was HTTPS with an expiring token) to stop the recurring auth-failure loop.
 - Packaging via `pyproject.toml`: `openai` (bumped to `>=1.3.0` for tool-calling support), `python-dotenv`, `nbclient`, `nbformat` are core dependencies, each import isolated to the one module that needs it. `ipykernel` is dev-only plus installed per-target-venv at runtime. New console script: `repair-tool-agent`.
 - `OPENAI_API_KEY` is read from the environment, with `.env` support (gitignored; only its presence/length was ever verified, never its value). **May need to change** once the supervisor's model/key details are confirmed (`NEW_DIRECTION.md` item 6) — `llm.py`'s OpenAI-specific bits (e.g. `response_format={"type": "json_object"}`) would need adjusting for a non-OpenAI provider.
 - Code lives in `repair_tool/` (moved from flat root modules as Phase 3's Step 0).
@@ -143,13 +149,14 @@ actual evaluation once that work resumes.
 
 ## Suggested next step
 
-Commit and push the Agentic first task (it is built, tested, and verified
-for real, just not yet in git). Beyond that, everything is genuinely
-blocked on the supervisor's written confirmation of: the exact novel
-contribution, build priority, which classical dependency tool to study,
-and the model/API key details (`NEW_DIRECTION.md`). No multi-agent,
-classical-KG-tool, repo-scale repair, or hybrid work beyond what's already
-built should start until then — `AGENTIC_DIRECTION_AND_FIRST_TASK.md`
-section 4.6 lists exactly what's deliberately out of scope for now. The
+Commit and push Provenance & report (it is built, tested, and verified for
+real, just not yet in git). Beyond that, everything is genuinely blocked on
+the supervisor's written confirmation of: the exact novel contribution,
+build priority, which classical dependency tool to study, and the
+model/API key details (`NEW_DIRECTION.md`). No multi-agent, classical-KG-
+tool, repo-scale repair, or hybrid work beyond what's already built should
+start until then — `AGENTIC_DIRECTION_AND_FIRST_TASK.md` section 4.6 and
+`TASK_provenance_and_report.md`'s "Out of scope" list what's deliberately
+out of scope for now. The
 `06` limitation and the paused dataset/taxonomy work remain accurately
 tracked here, ready to resume once priorities are confirmed.

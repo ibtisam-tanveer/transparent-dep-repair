@@ -19,11 +19,12 @@ the thesis toward whole-**repository** repair (not just single files), a
 hybrid classical+LLM strategy, and an **agentic** architecture — see
 `NEW_DIRECTION.md` and `AGENTIC_DIRECTION_AND_FIRST_TASK.md` (the staged
 agentic build plan). The exact novel contribution and build order are still
-being confirmed; built so far: the repo-analysis foundation, and now the
-first agentic step — a single LLM agent that chooses tools instead of a
-fixed loop, on single files (see "Agentic direction" below). Everything in
-Phases 1-5 and Notebook Support survives unchanged as the engine every
-later layer sits on top of.
+being confirmed; built so far: the repo-analysis foundation, a single LLM
+agent that chooses tools instead of a fixed loop (see "Agentic direction"
+below), and a two-axis provenance model + the first transparency report
+sharpening what that agent records (see "Provenance & report" below).
+Everything in Phases 1-5 and Notebook Support survives unchanged as the
+engine every later layer sits on top of.
 
 ## Phase 1 — run a project and capture its error
 
@@ -418,6 +419,71 @@ remains for comparison (RQ3: does choosing tools beat a fixed pipeline?).
 See `AGENT_FIRST_TASK_SUMMARY.md` for the full build notes, test strategy,
 and design decisions.
 
+## Provenance & report — two independent trust axes, and the first transparency report
+
+Running the agent above for real exposed a real weakness: a single
+`provenance` tag collapses two different questions into one. Per
+`TASK_provenance_and_report.md`, every `TraceStep` now carries two
+independent fields instead:
+
+- **`grounding`** — was this action backed by a deterministic/classical
+  tool result (`metadata_grounded`, e.g. an install whose package a
+  `lookup_package` call confirmed exists), or only the LLM's own reasoning
+  (`llm_proposed`, e.g. a code rewrite)? Observation tools themselves
+  (`run_target`, `diagnose_error`, `lookup_package`, `verify`) are
+  `deterministic` — facts, not proposals. Set once, when the action is
+  taken, and **never changes afterward** — an action's source doesn't
+  depend on whether it later turns out to matter. (`kg_grounded` is
+  reserved for a future knowledge-graph tool; nothing produces it yet.)
+- **`verification`** — did a later check confirm the project then ran
+  (`verified`), or has nothing confirmed it yet (`unverified`)? `n/a` for
+  observation tools.
+
+A `confidence` (`high`/`medium`/`medium-high`/`low`) is derived from the
+pair for every fix action. The motivating case: installing `numpy`
+(confirmed on PyPI first) now reads honestly as `metadata_grounded` +
+`unverified` the moment the *next* check reveals a second, unrelated
+failure (`np.float`'s `AttributeError`) — well-founded, just not (yet)
+sufficient — instead of the old, misleading `llm_unverified`, which read
+exactly like an ungrounded guess.
+
+```python
+from repair_tool.agent import agent_repair
+from repair_tool.report import build_report
+
+result = agent_repair("broken_examples/02_numpy_float.py")
+print(build_report(result))
+```
+
+```
+Repair report — broken_examples/02_numpy_float.py
+Outcome: FIXED
+
+Step 1  install numpy
+        grounding:    metadata_grounded ('numpy' confirmed by a classical lookup)
+        verification: unverified (no passing re-run has confirmed this yet)
+        confidence:   medium
+
+Step 2  edit code: x = np.float(3.14) -> x = float(3.14)
+        grounding:    llm_proposed (no classical tool backed this)
+        verification: verified (the project ran successfully afterward)
+        confidence:   medium-high
+
+Summary: 2 fix actions (1 grounded, 1 model-proposed). Project now runs.
+         Accepted fix confidence: medium-high — a model proposal confirmed
+         only by re-running; a reviewer may wish to check it.
+```
+
+CLI: `python -m repair_tool.agent <path> --report` prints this instead of
+the raw trace. `repair_tool/report.py`'s `build_report()` adds no new trust
+logic — it only formats what's already on the trace, and it **never hides
+a necessary-but-insufficient or failed action**: both appear with honest
+tags, not just the step that ultimately worked. Plain text only — no
+UI/HTML in this task; see `PROVENANCE_REPORT_SUMMARY.md` for the full
+design notes, including a real bug this task's own verification found (a
+`run_target` call confirming an already-passing project wasn't being
+treated the same as a `verify` call doing the identical check).
+
 ## Roadmap (out of scope so far, tracked here for context)
 
 - **Multiple agents** (diagnosis/repair/verification split), **a classical
@@ -472,12 +538,15 @@ tests/fixtures/hangs.py       infinite loop, used only to test the timeout path
 repair_tool/agent_tools.py    Agentic first task — the engine as LLM-callable tools, TOOL_SPECS, build_dispatch
 repair_tool/agent.py          Agentic first task — agent_repair(), AgentResult, TraceStep, CLI
 tests/test_agent_tools.py     Agentic first task — each tool wrapper + dispatch binding (offline)
-tests/test_agent.py           Agentic first task — agent_repair()'s tool-calling loop (offline, mocked LLM) + real end-to-end
+tests/test_agent.py           Agentic first task + provenance/report task — agent_repair()'s tool-calling loop and two-axis trust tags (offline, mocked LLM) + real end-to-end
+repair_tool/report.py         Provenance/report task — build_report(), the first transparency report (plain text)
+tests/test_report.py          Provenance/report task — build_report() (offline) + real end-to-end
 pyproject.toml                packaging + core deps (openai, python-dotenv, nbclient, nbformat) + dev-only extras (numpy, pandas, ipykernel, ...)
 .github/workflows/tests.yml   CI: runs all test suites on every push (network tests skipped)
 dataset/                      independent data track — see DATASET_SUMMARY.md
 NEW_DIRECTION.md              the repo-level/hybrid/agentic scope change — read this first for anything repo-level
 AGENTIC_DIRECTION_AND_FIRST_TASK.md  the staged agentic build plan — read this first for anything agent-related
+TASK_provenance_and_report.md the two-axis trust model + first transparency report spec
 ```
 
 `runner.py`/`diagnose.py` moved into the `repair_tool/` package as Phase 3's

@@ -36,9 +36,10 @@ def _response(tool_calls=None, content=None):
 @patch("repair_tool.agent.get_venv_python", return_value="/fake/python")
 class TestAgentRepairOffline(unittest.TestCase):
     """The LLM is fully mocked (scripted tool-call sequences) -- exercises
-    only the agent's own loop: dispatching tools, building the trace,
-    tagging provenance, and stopping on verify or MAX_STEPS. Real network
-    calls (pypi, pip) are mocked at the same seam agent_tools.py calls them.
+    only the agent's own loop: dispatching tools, building the trace, and
+    tagging the two-axis trust model (grounding/verification/confidence).
+    Real network calls (pypi, pip) are mocked at the same seam
+    agent_tools.py calls them.
     """
 
     @patch("repair_tool.agent_tools.apply_module.apply", return_value=(True, "Successfully installed seaborn"))
@@ -74,11 +75,18 @@ class TestAgentRepairOffline(unittest.TestCase):
         tools_called = [step.tool_called for step in result.trace]
         self.assertEqual(tools_called, ["run_target", "diagnose_error", "lookup_package", "install_package", "verify"])
 
+        for i in (0, 1, 4):  # run_target, diagnose_error, verify -- observation tools
+            self.assertEqual(result.trace[i].grounding, "deterministic")
+            self.assertEqual(result.trace[i].verification, "n/a")
+            self.assertEqual(result.trace[i].confidence, "")
+
+        lookup_step = result.trace[2]
+        self.assertEqual(lookup_step.grounding, "deterministic")
+
         install_step = result.trace[3]
-        self.assertEqual(install_step.provenance, "metadata_verified + execution_verified")
-        self.assertEqual(result.trace[0].provenance, "execution_verified")
-        self.assertEqual(result.trace[2].provenance, "metadata_verified")
-        self.assertEqual(result.trace[4].provenance, "execution_verified")
+        self.assertEqual(install_step.grounding, "metadata_grounded")
+        self.assertEqual(install_step.verification, "verified")
+        self.assertEqual(install_step.confidence, "high")
         self.assertEqual(result.trace[0].thought, "let's see what's wrong")
 
     @patch("repair_tool.agent_tools.run_project")
@@ -108,7 +116,92 @@ class TestAgentRepairOffline(unittest.TestCase):
         self.assertEqual(result.final_strategy, "code_edit")
         edit_step = result.trace[2]
         self.assertEqual(edit_step.tool_called, "edit_code")
-        self.assertEqual(edit_step.provenance, "execution_verified")
+        self.assertEqual(edit_step.grounding, "llm_proposed")
+        self.assertEqual(edit_step.verification, "verified")
+        self.assertEqual(edit_step.confidence, "medium-high")
+
+    @patch("repair_tool.agent_tools.apply_module.apply_code_edit", return_value=(True, "applied"))
+    @patch("repair_tool.agent_tools.apply_module.apply", return_value=(True, "Successfully installed numpy"))
+    @patch("repair_tool.agent_tools.pypi.latest_version", return_value="2.0.0")
+    @patch("repair_tool.agent_tools.pypi.resolve_package_name", return_value="numpy")
+    @patch("repair_tool.agent_tools.run_project")
+    @patch("openai.OpenAI")
+    def test_numpy_style_case_a_grounded_install_that_doesnt_finish_the_job(
+        self, mock_openai_cls, mock_run, mock_resolve, mock_latest, mock_apply, mock_edit, _mock_venv, _mock_workspace
+    ):
+        """Reproduces the exact motivating scenario from
+        TASK_provenance_and_report.md: a well-founded install (confirmed by
+        lookup_package) that a following verify doesn't confirm -- because
+        it reveals a second, different failure -- must read
+        metadata_grounded + unverified, never llm_unverified. The edit that
+        actually finishes the job is llm_proposed + verified.
+        """
+        mock_run.side_effect = [
+            RunResult(ok=False, returncode=1, stdout="", stderr="ModuleNotFoundError: No module named 'numpy'"),
+            RunResult(
+                ok=False, returncode=1, stdout="",
+                stderr="AttributeError: module 'numpy' has no attribute 'float'",
+            ),
+            RunResult(ok=True, returncode=0, stdout="3.14\n", stderr=""),
+        ]
+        mock_openai_cls.return_value.chat.completions.create.side_effect = [
+            _response([_tool_call("c1", "run_target", {})]),
+            _response([_tool_call("c2", "diagnose_error", {"run_result": {
+                "ok": False, "returncode": 1, "stdout": "", "stderr": "ModuleNotFoundError: No module named 'numpy'"
+            }})]),
+            _response([_tool_call("c3", "lookup_package", {"import_name": "numpy"})]),
+            _response([_tool_call("c4", "install_package", {"package": "numpy"})]),
+            _response([_tool_call("c5", "verify", {})]),
+            _response([_tool_call("c6", "diagnose_error", {"run_result": {
+                "ok": False, "returncode": 1, "stdout": "",
+                "stderr": "AttributeError: module 'numpy' has no attribute 'float'",
+            }})]),
+            _response([_tool_call("c7", "edit_code", {"edits": [{"find": "np.float", "replace": "float"}]})]),
+            _response([_tool_call("c8", "verify", {})]),
+        ]
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+            result = agent_repair(os.path.join(EXAMPLES, "02_numpy_float.py"))
+
+        self.assertTrue(result.fixed)
+
+        install_step = next(s for s in result.trace if s.tool_called == "install_package")
+        self.assertEqual(install_step.grounding, "metadata_grounded")
+        self.assertEqual(install_step.verification, "unverified")
+        self.assertEqual(install_step.confidence, "medium")
+
+        edit_step = next(s for s in result.trace if s.tool_called == "edit_code")
+        self.assertEqual(edit_step.grounding, "llm_proposed")
+        self.assertEqual(edit_step.verification, "verified")
+        self.assertEqual(edit_step.confidence, "medium-high")
+
+    @patch("repair_tool.agent_tools.run_project")
+    @patch("openai.OpenAI")
+    def test_an_already_passing_target_is_confirmed_by_run_target_alone(
+        self, mock_openai_cls, mock_run, _mock_venv, _mock_workspace
+    ):
+        """Regression test for a real bug: run_target and verify both just
+        re-run the project (see agent_tools.verify), so a target that
+        already passes -- nothing to fix, or a previously-fixed cached
+        workspace from an earlier run reusing the same venv -- must be
+        confirmed by a plain run_target call, not only by an explicit
+        'verify' call. Found by running agent_repair twice in a row against
+        the same real file: the second run's workspace was already fixed,
+        the model sensibly called only run_target, saw ok=true, and stopped
+        -- which used to report fixed=False even though nothing was broken.
+        """
+        mock_run.return_value = RunResult(ok=True, returncode=0, stdout="3.14\n", stderr="")
+        mock_openai_cls.return_value.chat.completions.create.side_effect = [
+            _response([_tool_call("c1", "run_target", {})]),
+        ]
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+            result = agent_repair(os.path.join(EXAMPLES, "02_numpy_float.py"))
+
+        self.assertTrue(result.fixed)
+        self.assertEqual(len(result.trace), 1)
+        self.assertEqual(result.trace[0].tool_called, "run_target")
+        self.assertEqual(result.final_strategy, "")
 
     @patch("repair_tool.agent_tools.run_project")
     @patch("openai.OpenAI")
