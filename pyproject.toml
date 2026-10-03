@@ -6,10 +6,11 @@ requires-python = ">=3.10"
 authors = [{ name = "Muhammad Ibtisam Tanveer" }]
 
 dependencies = [
-    # Phase 5 only (repair_tool/llm.py). The rest of the tool (runner,
-    # diagnose, pypi, venv_manager, repair's rule-based path, apply) stays
-    # importable and testable without either of these.
-    "openai>=1.0.0",
+    # Phase 5 (repair_tool/llm.py) and the agent (repair_tool/agent.py, which
+    # needs tool-calling support). The rest of the tool (runner, diagnose,
+    # pypi, venv_manager, repair's rule-based path, apply) stays importable
+    # and testable without either of these.
+    "openai>=1.3.0",
     "python-dotenv",
     # Notebook Support (repair_tool/notebook.py): the execution *driver*.
     # Runs from this tool's own environment, orchestrating a kernel in the
@@ -42,6 +43,7 @@ repair-tool-run = "repair_tool.runner:main"
 repair-tool-diagnose = "repair_tool.diagnose:main"
 repair-tool-fix = "repair_tool.loop:main"
 repair-tool-analyze-repo = "repair_tool.repo:main"
+repair-tool-agent = "repair_tool.agent:main"
 
 [build-system]
 requires = ["setuptools>=68"]

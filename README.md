@@ -14,14 +14,16 @@ run the project -> read the error -> propose a fix -> apply it -> re-run to veri
 
 This repo is built phase by phase, one link of that loop at a time.
 
-**Scope note (2026-09-20):** the supervisor has directed the thesis toward
-whole-**repository** repair (not just single files), a hybrid
-classical+LLM strategy, and an agentic architecture — see `NEW_DIRECTION.md`.
-The exact novel contribution and build order are still being confirmed;
-only the repo-analysis foundation below is being built so far, since it's
-needed under every version of that direction. Everything in Phases 1-5 and
-Notebook Support survives unchanged as the engine the repo-level work sits
-on top of.
+**Scope note (2026-09-20, refined 2026-10-03):** the supervisor has directed
+the thesis toward whole-**repository** repair (not just single files), a
+hybrid classical+LLM strategy, and an **agentic** architecture — see
+`NEW_DIRECTION.md` and `AGENTIC_DIRECTION_AND_FIRST_TASK.md` (the staged
+agentic build plan). The exact novel contribution and build order are still
+being confirmed; built so far: the repo-analysis foundation, and now the
+first agentic step — a single LLM agent that chooses tools instead of a
+fixed loop, on single files (see "Agentic direction" below). Everything in
+Phases 1-5 and Notebook Support survives unchanged as the engine every
+later layer sits on top of.
 
 ## Phase 1 — run a project and capture its error
 
@@ -353,11 +355,78 @@ deliberate: what counts as "the repo runs" is a decision the supervisor may
 set later, and it must be trivial to change without touching the analysis
 itself.
 
+## Agentic direction — first task: agent-callable tools + one tool-calling agent
+
+The first concrete step of `NEW_DIRECTION.md`'s agentic layer, staged per
+`AGENTIC_DIRECTION_AND_FIRST_TASK.md` so the "build a multi-agent hybrid
+system" goal doesn't get tackled in one risky leap. This task converts the
+existing engine into LLM-callable tools and replaces `loop.py`'s *fixed*
+decision order (propose → apply → verify) with a single LLM agent that
+*chooses* which tool to call next — proving the "agent calls tools, every
+action is logged with provenance" pattern before adding a second/third
+agent or a classical knowledge-graph tool.
+
+| Module | Responsibility |
+|---|---|
+| `repair_tool/agent_tools.py` | Wraps the existing engine as six JSON-in/JSON-out tools (`run_target`, `diagnose_error`, `lookup_package`, `install_package`, `edit_code`, `verify`) plus `TOOL_SPECS` (the OpenAI `tools=[...]` schema) and `build_dispatch()` (binds one session's workspace/venv). No new repair logic — every tool delegates to the unchanged Phase 1-5 function it wraps. |
+| `repair_tool/agent.py` | `agent_repair(path) -> AgentResult` — a ReAct-style tool-calling loop: the model sees the situation, calls a tool, sees the result, calls the next, until `verify` passes or `MAX_STEPS` (10) is hit. Records an ordered, provenance-tagged `TraceStep` list — the seed of the transparency report. |
+
+```python
+from repair_tool.agent import agent_repair
+
+result = agent_repair("broken_examples/01_missing_package.py")
+assert result.fixed is True
+assert result.trace[0].tool_called == "run_target"
+```
+
+CLI:
+
+```bash
+python -m repair_tool.agent <path-to-target.py> [--max-steps N]
+# or: repair-tool-agent <path-to-target.py>
+```
+
+**The model owns search, the checker owns authority** (Schwarz paper
+principle, see `AGENTIC_DIRECTION_AND_FIRST_TASK.md` §2): `install_package`
+and `edit_code` steps are tagged `llm_unverified` the moment they're
+applied — a proposal, not yet a fact. Only once the *next* `verify` call
+reports `ok=true` does that specific action get upgraded: to
+`metadata_verified + execution_verified` if a `lookup_package` call
+confirmed the package first, or plain `execution_verified` for a code edit
+confirmed only by re-running. An action applied but *not* the one
+immediately preceding a passing `verify` (e.g. installing numpy before
+realizing a separate code edit was also needed) stays `llm_unverified`
+permanently — a deliberately strict reading of "verified": it's tied to the
+specific action a passing re-run actually followed, not to anything that
+later turned out to matter.
+
+**Verified for real against both existing hard cases**: `agent_repair`
+fixes `01_missing_package.py` in one diagnose/install/verify round, and
+`02_numpy_float.py` in two rounds — the agent installs numpy first (fixing
+the `ModuleNotFoundError`), `verify` then reveals the *real* error
+(`AttributeError: module 'numpy' has no attribute 'float'`), and the agent
+diagnoses again and reaches for `edit_code` instead of repeating the same
+action — exactly the layered-error behavior `loop.py`'s fixed pipeline
+handles with two different code paths (Phase 3's install, then Phase 5's
+hard-case branch); the agent reaches the same outcome by *choosing* both
+steps itself.
+
+**`loop.py` is untouched and still the baseline.** `agent.py` is a new,
+parallel entry point — not a replacement — so the deterministic fixed loop
+remains for comparison (RQ3: does choosing tools beat a fixed pipeline?).
+
+See `AGENT_FIRST_TASK_SUMMARY.md` for the full build notes, test strategy,
+and design decisions.
+
 ## Roadmap (out of scope so far, tracked here for context)
 
-- **Repo-scale repair, the classical+LLM hybrid, and agentic orchestration**
-  (`NEW_DIRECTION.md`) — on hold until the supervisor confirms the novel
-  contribution and build priority.
+- **Multiple agents** (diagnosis/repair/verification split), **a classical
+  knowledge-graph tool** (PyEGo/ReadPyE, a stretch goal), and **repo-scale
+  agentic orchestration** — the next agentic steps per
+  `AGENTIC_DIRECTION_AND_FIRST_TASK.md`, after the single-file agent above.
+- **The classical+LLM hybrid** beyond what's already there (PyPI facts +
+  execution checks as the symbolic half already makes the current agent
+  hybrid; a published KG tool is the optional next step, not a dependency).
 - **Phase 4** (deferred, not dropped — see `PHASE5_TASK.md`'s "Build order"
   note) — verify each fix against authoritative package metadata beyond
   existence/name, once there's more to harden.
@@ -400,10 +469,15 @@ tests/fixtures/sample_repo/                small offline-testable repo fixture (
 tests/fixtures/sample_repo_with_deps/      repo fixture with a real requirements.txt (network-guarded)
 tests/test_repo.py            Repo Foundation — discovery, dependency detection/install, analyze_repo (offline + guarded)
 tests/fixtures/hangs.py       infinite loop, used only to test the timeout path
+repair_tool/agent_tools.py    Agentic first task — the engine as LLM-callable tools, TOOL_SPECS, build_dispatch
+repair_tool/agent.py          Agentic first task — agent_repair(), AgentResult, TraceStep, CLI
+tests/test_agent_tools.py     Agentic first task — each tool wrapper + dispatch binding (offline)
+tests/test_agent.py           Agentic first task — agent_repair()'s tool-calling loop (offline, mocked LLM) + real end-to-end
 pyproject.toml                packaging + core deps (openai, python-dotenv, nbclient, nbformat) + dev-only extras (numpy, pandas, ipykernel, ...)
 .github/workflows/tests.yml   CI: runs all test suites on every push (network tests skipped)
 dataset/                      independent data track — see DATASET_SUMMARY.md
 NEW_DIRECTION.md              the repo-level/hybrid/agentic scope change — read this first for anything repo-level
+AGENTIC_DIRECTION_AND_FIRST_TASK.md  the staged agentic build plan — read this first for anything agent-related
 ```
 
 `runner.py`/`diagnose.py` moved into the `repair_tool/` package as Phase 3's
