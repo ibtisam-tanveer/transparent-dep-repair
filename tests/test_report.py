@@ -5,12 +5,14 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from repair_tool.agent import AgentResult, TraceStep
-from repair_tool.report import build_report
+from repair_tool.agent_repo import RepoAgentResult
+from repair_tool.report import build_report, build_repo_report
 
 SKIP_NETWORK = bool(os.environ.get("SKIP_NETWORK_TESTS"))
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXAMPLES = os.path.join(ROOT, "broken_examples")
+FIXTURE_REPO = os.path.join(ROOT, "tests", "fixtures", "agent_repo")
 
 
 def _obs_step(tool_called: str, tool_input=None, tool_result=None) -> TraceStep:
@@ -131,24 +133,89 @@ class TestBuildReport(unittest.TestCase):
         self.assertNotIn("reviewer may wish to check", report)
 
 
+class TestBuildRepoReport(unittest.TestCase):
+    def test_reports_the_repo_and_overall_outcome(self):
+        result = RepoAgentResult(
+            repo_path=FIXTURE_REPO,
+            files=[
+                AgentResult(target="good.py", fixed=True, trace=[]),
+                AgentResult(target="a.py", fixed=True, trace=[_obs_step("run_target")]),
+            ],
+            summary={"total": 2, "already_passing": 1, "fixed": 1, "still_failing": 0},
+        )
+        report = build_repo_report(result)
+        self.assertIn(FIXTURE_REPO, report)
+        self.assertIn("2 of 2 files now run", report)
+
+    def test_an_error_is_reported_without_a_file_list(self):
+        result = RepoAgentResult(repo_path="/no/such/path", error="not a directory: '/no/such/path'")
+        report = build_repo_report(result)
+        self.assertIn("not a directory", report)
+
+    def test_names_every_file_and_does_not_hide_a_still_broken_one(self):
+        install_step = TraceStep(
+            thought="",
+            tool_called="install_package",
+            tool_input={"package": "seaborn"},
+            tool_result={"ok": True, "log": "installed"},
+            grounding="metadata_grounded",
+            verification="verified",
+            confidence="high",
+        )
+        fixed_file = AgentResult(target="a.py", fixed=True, trace=[install_step], final_strategy="install")
+        already_passing_file = AgentResult(target="b.py", fixed=True, trace=[])
+        broken_file = AgentResult(target="c.py", fixed=False, trace=[_obs_step("run_target")])
+
+        result = RepoAgentResult(
+            repo_path=FIXTURE_REPO,
+            files=[fixed_file, already_passing_file, broken_file],
+            summary={"total": 3, "already_passing": 1, "fixed": 1, "still_failing": 1},
+        )
+
+        report = build_repo_report(result)
+
+        self.assertIn("a.py: FIXED (confidence: high)", report)
+        self.assertIn("b.py: already passing (no repair needed)", report)
+        self.assertIn("c.py: NOT FIXED", report)
+        self.assertIn("1 file(s) remain broken", report)
+        # the fixed file's per-file detail is reused, not re-derived
+        self.assertIn("install seaborn", report)
+        self.assertIn("metadata_grounded", report)
+
+    def test_a_file_that_raised_is_reported_as_an_error_not_hidden(self):
+        errored_file = AgentResult(target="d.py", fixed=False, error="RuntimeError: boom")
+        result = RepoAgentResult(
+            repo_path=FIXTURE_REPO,
+            files=[errored_file],
+            summary={"total": 1, "already_passing": 0, "fixed": 0, "still_failing": 1},
+        )
+        report = build_repo_report(result)
+        self.assertIn("d.py: ERROR (RuntimeError: boom)", report)
+
+
 @unittest.skipIf(SKIP_NETWORK, "SKIP_NETWORK_TESTS set")
 @unittest.skipUnless(os.environ.get("OPENAI_API_KEY"), "OPENAI_API_KEY not set")
 class TestBuildReportNetwork(unittest.TestCase):
-    def test_required_behaviour_real_report_tells_the_two_step_story(self):
-        # A different file from test_agent.py's own real end-to-end test
-        # (02_numpy_float.py), deliberately: venv_manager caches one venv +
-        # workspace copy per absolute target path, so reusing the same file
-        # here would find it already fixed by the other test (if it ran
-        # first in the same process) and report "no fix action was taken"
-        # instead of exercising the two-step story this test checks for.
+    def test_required_behaviour_real_report_names_grounding_verification_and_confidence(self):
+        # 07_collections_abc.py, deliberately: a pure stdlib import_name fix
+        # (from collections import Mapping -> from collections.abc import
+        # Mapping) needs no install and only one diagnose/edit/verify round,
+        # so it's not shared with any other real test's cache in this suite
+        # (unlike 01/02, used by test_agent.py) and isn't tight against
+        # MAX_STEPS the way 03_numpy_int_bool.py's *two* separate removed
+        # attributes can be (install + two edit/verify rounds came within
+        # one step of exhausting the default budget in practice). The
+        # two-step grounded-then-proposed story itself is already asserted
+        # deterministically offline, in test_agent.py's numpy-style test;
+        # this test only needs to prove build_report renders a real trace.
         from repair_tool.agent import agent_repair
 
-        result = agent_repair(os.path.join(EXAMPLES, "03_numpy_int_bool.py"))
-        self.assertTrue(result.fixed)
+        result = agent_repair(os.path.join(EXAMPLES, "07_collections_abc.py"))
+        self.assertTrue(result.fixed, msg=result.error)
 
         report = build_report(result)
 
-        self.assertIn("03_numpy_int_bool.py", report)
+        self.assertIn("07_collections_abc.py", report)
         self.assertIn("FIXED", report)
         self.assertIn("grounding:", report)
         self.assertIn("verification:", report)

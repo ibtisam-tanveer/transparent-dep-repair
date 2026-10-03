@@ -1,16 +1,18 @@
 """Render an AgentResult's decision trace into a human-readable transparency
 report -- the first concrete version of Vision Doc section 7's report, per
-TASK_provenance_and_report.md Part B.
+TASK_provenance_and_report.md Part B. build_repo_report (added by
+TASK_repo_scale_agent.md Part B) does the same for a whole repository's
+RepoAgentResult, reusing build_report for each file's detail.
 
 Plain text/markdown only -- no UI, no HTML in this task; richer rendering
 comes later. This module adds no new trust logic: it only describes what
-agent.py already recorded on each TraceStep (grounding, verification,
-confidence).
+agent.py/agent_repo.py already recorded.
 """
 
 from __future__ import annotations
 
 from .agent import GROUNDING_LLM, GROUNDING_METADATA, AgentResult, TraceStep
+from .agent_repo import RepoAgentResult
 
 _FIX_TOOLS = ("install_package", "edit_code")
 
@@ -93,5 +95,73 @@ def build_report(result: AgentResult) -> str:
     else:
         summary += " Project still does not run."
         lines.append(summary)
+
+    return "\n".join(lines)
+
+
+def _file_outcome_line(file_result: AgentResult) -> str:
+    if file_result.error:
+        return f"{file_result.target}: ERROR ({file_result.error})"
+    if file_result.fixed and not file_result.trace:
+        return f"{file_result.target}: already passing (no repair needed)"
+    if file_result.fixed:
+        fix_steps = [step for step in file_result.trace if step.tool_called in _FIX_TOOLS]
+        accepted = next((step for step in reversed(fix_steps) if step.verification == "verified"), None)
+        confidence = accepted.confidence if accepted else "n/a"
+        return f"{file_result.target}: FIXED (confidence: {confidence})"
+    return f"{file_result.target}: NOT FIXED (the agent found no verified fix)"
+
+
+def build_repo_report(result: RepoAgentResult) -> str:
+    """Render `result` as a plain-text, repository-level transparency
+    report: the overall outcome, every file with its outcome and accepted
+    fix's confidence, the per-file fix detail (reusing build_report), and
+    an honest summary -- still-broken files are named, never hidden.
+    """
+    lines = [f"Repository repair report — {result.repo_path}"]
+
+    if result.error:
+        lines.append(f"Error: {result.error}")
+        return "\n".join(lines)
+
+    s = result.summary
+    total = s.get("total", 0)
+    already_passing = s.get("already_passing", 0)
+    fixed = s.get("fixed", 0)
+    still_failing = s.get("still_failing", 0)
+    now_running = already_passing + fixed
+
+    lines.append(
+        f"Outcome: {now_running} of {total} files now run "
+        f"({already_passing} already passing, {fixed} fixed by the agent, {still_failing} still failing)"
+    )
+    if result.dependency_file_used:
+        lines.append(f"Dependencies installed from: {result.dependency_file_used}")
+    elif result.dependency_files_found:
+        lines.append(f"Dependency files found but not installed: {result.dependency_files_found}")
+    lines.append("")
+
+    for file_result in result.files:
+        lines.append(_file_outcome_line(file_result))
+    lines.append("")
+
+    repaired_files = [f for f in result.files if f.trace]
+    if repaired_files:
+        lines.append("Per-file detail:")
+        lines.append("")
+        for file_result in repaired_files:
+            lines.append(build_report(file_result))
+            lines.append("")
+
+    grounded_total = sum(
+        1 for f in result.files for step in f.trace if step.tool_called in _FIX_TOOLS and step.grounding == GROUNDING_METADATA
+    )
+    proposed_total = sum(
+        1 for f in result.files for step in f.trace if step.tool_called in _FIX_TOOLS and step.grounding == GROUNDING_LLM
+    )
+    lines.append(
+        f"Summary: {grounded_total} grounded fix action(s), {proposed_total} model-proposed, "
+        f"across {fixed} fixed file(s); {still_failing} file(s) remain broken."
+    )
 
     return "\n".join(lines)

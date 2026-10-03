@@ -29,6 +29,14 @@ fix action (install_package/edit_code) -- see `_CONFIDENCE`.
 Never raises: a missing key, a network failure, or a malformed tool call
 all degrade to AgentResult(fixed=False, error=...), the same never-raise
 contract as llm.py.
+
+TASK_repo_scale_agent.md added two more ways to obtain an environment,
+alongside the default persistent cache: an explicit `python_exe`/
+`workspace_path` (how agent_repo.py runs this same function inside a
+repo's one shared venv) and `fresh=True` (a throwaway venv/workspace,
+required for dataset evaluation -- see agent_repair's docstring). All
+three funnel through the same `_agent_repair_loop`, so repair behaviour
+itself never depends on where the environment came from.
 """
 
 from __future__ import annotations
@@ -37,11 +45,13 @@ import argparse
 import json
 import os
 import re
+import shutil
 import sys
+import tempfile
 from dataclasses import dataclass, field
 
 from . import agent_tools
-from .venv_manager import get_venv_python, get_workspace_copy
+from .venv_manager import get_fresh_venv_python, get_fresh_workspace_copy, get_venv_python, get_workspace_copy
 
 try:
     from dotenv import load_dotenv
@@ -156,12 +166,36 @@ def _run_tool_call(dispatch: dict, name: str, args: dict) -> dict:
         return {"error": f"tool {name!r} raised: {exc}"}
 
 
-def agent_repair(path: str, max_steps: int = MAX_STEPS) -> AgentResult:
+def agent_repair(
+    path: str,
+    max_steps: int = MAX_STEPS,
+    fresh: bool = False,
+    python_exe: str | None = None,
+    workspace_path: str | None = None,
+) -> AgentResult:
     """Let an LLM agent choose tools to fix `path`, verifying by re-running.
 
-    `path` itself is read once (to make the working copy, via
-    venv_manager.get_workspace_copy) and never modified -- identical
-    isolation contract to loop.repair().
+    Three ways to get an environment + working copy to run in, checked in
+    this order:
+
+    1. `python_exe` and `workspace_path` given explicitly -- used as-is, no
+       venv_manager call at all. This is how agent_repo.py runs this exact
+       function against one file of a repository inside that repo's *one
+       shared* environment, instead of giving every file its own venv.
+    2. `fresh=True` -- a brand-new, throwaway venv and a fresh copy of
+       `path`, ignoring any cached one, deleted again before this call
+       returns. **Any dataset evaluation must use fresh=True.** The
+       default (3) below reuses venv_manager's persistent, hash-cached
+       venv/workspace for `path` -- correct for interactive/manual use,
+       but a *second* evaluation run against the same target would
+       silently find it already fixed from the first run and report
+       "nothing to do" instead of repairing from scratch, corrupting
+       results across a dataset. See TASK_repo_scale_agent.md Part C.
+    3. Default -- venv_manager's persistent, hash-cached venv/workspace for
+       `path`, reused across calls.
+
+    `path` itself is never modified in any of the three cases -- only the
+    working copy (wherever it came from) is ever touched.
     """
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -172,8 +206,27 @@ def agent_repair(path: str, max_steps: int = MAX_STEPS) -> AgentResult:
     except ImportError:
         return AgentResult(target=path, fixed=False, error="the 'openai' package is not installed")
 
-    python_exe = get_venv_python(path)
-    workspace_path = get_workspace_copy(path)
+    if python_exe is not None and workspace_path is not None:
+        return _agent_repair_loop(path, workspace_path, python_exe, openai, api_key, max_steps)
+
+    if fresh:
+        tmp_root = tempfile.mkdtemp(prefix="repair_tool_agent_fresh_")
+        try:
+            fresh_python = get_fresh_venv_python(tmp_root)
+            fresh_workspace = get_fresh_workspace_copy(path, tmp_root)
+            return _agent_repair_loop(path, fresh_workspace, fresh_python, openai, api_key, max_steps)
+        finally:
+            shutil.rmtree(tmp_root, ignore_errors=True)
+
+    cached_python = get_venv_python(path)
+    cached_workspace = get_workspace_copy(path)
+    return _agent_repair_loop(path, cached_workspace, cached_python, openai, api_key, max_steps)
+
+
+def _agent_repair_loop(path: str, workspace_path: str, python_exe: str, openai, api_key: str, max_steps: int) -> AgentResult:
+    """The actual ReAct tool-calling loop, independent of where
+    `workspace_path`/`python_exe` came from (the three modes agent_repair
+    documents). `path` is only used for AgentResult.target's label."""
     dispatch = agent_tools.build_dispatch(workspace_path, python_exe)
 
     client = openai.OpenAI(api_key=api_key)
@@ -291,9 +344,13 @@ def _main() -> int:
     parser.add_argument(
         "--report", action="store_true", help="print a human-readable transparency report instead of the raw trace"
     )
+    parser.add_argument(
+        "--fresh", action="store_true",
+        help="use a brand-new venv/workspace instead of the cached one (required for dataset evaluation)",
+    )
     args = parser.parse_args()
 
-    result = agent_repair(args.path, max_steps=args.max_steps)
+    result = agent_repair(args.path, max_steps=args.max_steps, fresh=args.fresh)
 
     if result.error:
         print(f"ERROR: {result.error}")

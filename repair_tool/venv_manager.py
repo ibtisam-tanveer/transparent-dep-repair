@@ -85,6 +85,56 @@ def ensure_ipykernel(python_exe: str) -> tuple[bool, str]:
     return completed.returncode == 0, log
 
 
+def venv_dir_for(target_path: str) -> str:
+    """Public read-only access to the venv directory `get_venv_python`
+    would (re)use for `target_path`, without creating anything. Lets a
+    caller that already knows a venv exists (e.g. agent_repo.py, right
+    after get_venv_python(repo_path)) locate its workspace/ subtree
+    directly -- see get_repo_file_workspace_copy.
+    """
+    return _venv_dir_for(target_path)
+
+
+def get_fresh_venv_python(tmp_root: str) -> str:
+    """Create a brand-new isolated venv at `tmp_root` -- NOT the
+    persistent, hash-cached store under VENV_ROOT -- and return its python
+    executable. For evaluation runs (see agent.agent_repair's `fresh`
+    option): the persistent cache is correct for interactive/manual use,
+    but reusing it across repeated evaluation runs of the same target
+    would silently make an already-fixed target look like it needed no
+    repair. The caller owns `tmp_root`'s lifecycle (create before, delete
+    after) -- this function only ever creates the venv inside it.
+    """
+    venv.EnvBuilder(with_pip=True, clear=True).create(tmp_root)
+    return _python_executable(tmp_root)
+
+
+def get_fresh_workspace_copy(target_path: str, tmp_root: str) -> str:
+    """Like get_workspace_copy, but under a caller-owned `tmp_root`
+    (see get_fresh_venv_python) instead of the persistent per-target
+    store -- always a fresh copy of the real, unmodified original."""
+    workspace_dir = os.path.join(tmp_root, "workspace")
+    os.makedirs(workspace_dir, exist_ok=True)
+    copy_path = os.path.join(workspace_dir, os.path.basename(target_path))
+    shutil.copyfile(target_path, copy_path)
+    return copy_path
+
+
+def get_repo_file_workspace_copy(venv_dir: str, repo_path: str, rel_file_path: str) -> str:
+    """Like get_workspace_copy, but scoped to a whole repo's ONE shared
+    venv directory (`venv_dir`, e.g. from venv_dir_for(repo_path) or a
+    fresh tmp_root) instead of giving every file in the repo its own venv
+    -- every file's working copy lives under the same venv's workspace/
+    subtree, preserving the file's path relative to the repo so files with
+    the same basename in different subdirectories don't collide.
+    """
+    copy_path = os.path.join(venv_dir, "workspace", rel_file_path)
+    os.makedirs(os.path.dirname(copy_path), exist_ok=True)
+    if not os.path.isfile(copy_path):
+        shutil.copyfile(os.path.join(repo_path, rel_file_path), copy_path)
+    return copy_path
+
+
 def _venv_dir_for(target_path: str) -> str:
     key = hashlib.sha1(os.path.abspath(target_path).encode()).hexdigest()[:12]
     return os.path.join(VENV_ROOT, key)

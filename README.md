@@ -14,17 +14,19 @@ run the project -> read the error -> propose a fix -> apply it -> re-run to veri
 
 This repo is built phase by phase, one link of that loop at a time.
 
-**Scope note (2026-09-20, refined 2026-10-03):** the supervisor has directed
-the thesis toward whole-**repository** repair (not just single files), a
-hybrid classical+LLM strategy, and an **agentic** architecture — see
-`NEW_DIRECTION.md` and `AGENTIC_DIRECTION_AND_FIRST_TASK.md` (the staged
-agentic build plan). The exact novel contribution and build order are still
-being confirmed; built so far: the repo-analysis foundation, a single LLM
-agent that chooses tools instead of a fixed loop (see "Agentic direction"
-below), and a two-axis provenance model + the first transparency report
-sharpening what that agent records (see "Provenance & report" below).
-Everything in Phases 1-5 and Notebook Support survives unchanged as the
-engine every later layer sits on top of.
+**Scope note (2026-09-20, refined 2026-10-03/04):** the supervisor has
+directed the thesis toward whole-**repository** repair (not just single
+files), a hybrid classical+LLM strategy, and an **agentic** architecture —
+see `NEW_DIRECTION.md` and `AGENTIC_DIRECTION_AND_FIRST_TASK.md` (the
+staged agentic build plan). The exact novel contribution and build order
+are still being confirmed; built so far: the repo-analysis foundation, a
+single LLM agent that chooses tools instead of a fixed loop (see "Agentic
+direction" below), a two-axis provenance model + the first transparency
+report (see "Provenance & report" below), and that same agent lifted to
+**whole repositories** in one shared environment, evaluation-ready via a
+`fresh` mode (see "Repo-scale agentic repair" below). Everything in
+Phases 1-5 and Notebook Support survives unchanged as the engine every
+later layer sits on top of.
 
 ## Phase 1 — run a project and capture its error
 
@@ -484,12 +486,52 @@ design notes, including a real bug this task's own verification found (a
 `run_target` call confirming an already-passing project wasn't being
 treated the same as a `verify` call doing the identical check).
 
+## Repo-scale agentic repair — the single-file agent, lifted to a whole repository
+
+`repair_tool/agent_repo.py`'s `agent_repair_repo(repo_path, fresh=...)`
+reuses `repo.py`'s discovery/dependency-install logic and `agent.py`'s
+per-file `agent_repair()` entirely unchanged, running every file in **one
+shared environment** — a package the agent installs while fixing one file
+is then genuinely present for the next, exactly like a real repository.
+
+```python
+from repair_tool.agent_repo import agent_repair_repo
+from repair_tool.report import build_repo_report
+
+result = agent_repair_repo("path/to/some/repo")
+print(build_repo_report(result))   # "N of M files now run", per-file detail, honest about what's still broken
+```
+
+CLI: `python -m repair_tool.agent_repo <repo> [--fresh] [--report]`, or
+`repair-tool-agent-repo`.
+
+**The shared environment is real, not simulated** — verified against a
+tiny fixture repo (`tests/fixtures/agent_repo/`) where a second file
+deliberately needs the exact same package as the first: fixing file A
+installs it for real, and file B then turns out already passing, with an
+**empty trace** (`AgentResult(fixed=True, trace=[])` is how "needed no
+repair" is told apart from "the agent fixed it" throughout). A third file
+in the same fixture showed this going even further than planned: it needed
+`numpy`, which turned out to already be present once `seaborn` (file A's
+fix) pulled it in as its own transitive dependency — so the agent correctly
+skipped straight to the code edit it still needed, with no install step at
+all. See `REPO_AGENT_SUMMARY.md`.
+
+**Evaluation-ready, deliberately**: both `agent.agent_repair()` and
+`agent_repair_repo()` take a `fresh: bool = False` option. The default
+reuses `venv_manager`'s persistent, hash-cached venv/workspace — correct
+for interactive use, but a *second* run against a target a prior run
+already fixed would silently see it already passing and report "nothing to
+do," which would quietly corrupt a dataset evaluation's results. **Any
+dataset evaluation must pass `fresh=True`** — a brand-new, throwaway venv
+and fresh file copies every time, deleted again once that run ends.
+
 ## Roadmap (out of scope so far, tracked here for context)
 
-- **Multiple agents** (diagnosis/repair/verification split), **a classical
-  knowledge-graph tool** (PyEGo/ReadPyE, a stretch goal), and **repo-scale
-  agentic orchestration** — the next agentic steps per
-  `AGENTIC_DIRECTION_AND_FIRST_TASK.md`, after the single-file agent above.
+- **Multiple agents** (diagnosis/repair/verification split) and **a
+  classical knowledge-graph tool** (PyEGo/ReadPyE, a stretch goal) — the
+  remaining agentic steps per `AGENTIC_DIRECTION_AND_FIRST_TASK.md`, now
+  that both the single-file and repo-scale agent exist.
 - **The classical+LLM hybrid** beyond what's already there (PyPI facts +
   execution checks as the symbolic half already makes the current agent
   hybrid; a published KG tool is the optional next step, not a dependency).
@@ -539,14 +581,19 @@ repair_tool/agent_tools.py    Agentic first task — the engine as LLM-callable 
 repair_tool/agent.py          Agentic first task — agent_repair(), AgentResult, TraceStep, CLI
 tests/test_agent_tools.py     Agentic first task — each tool wrapper + dispatch binding (offline)
 tests/test_agent.py           Agentic first task + provenance/report task — agent_repair()'s tool-calling loop and two-axis trust tags (offline, mocked LLM) + real end-to-end
-repair_tool/report.py         Provenance/report task — build_report(), the first transparency report (plain text)
-tests/test_report.py          Provenance/report task — build_report() (offline) + real end-to-end
+repair_tool/report.py         Provenance/report task + repo-scale task — build_report(), build_repo_report() (plain text)
+tests/test_report.py          Provenance/report task + repo-scale task — build_report()/build_repo_report() (offline) + real end-to-end
+repair_tool/agent_repo.py     Repo-scale task — agent_repair_repo(), RepoAgentResult, CLI
+tests/fixtures/agent_repo/    Repo-scale task — a tiny real fixture repo (passing/missing-package/shared-dep/removed-API files)
+tests/test_agent_repo.py      Repo-scale task — orchestration, shared-env, error-isolation, fresh mode (offline + real end-to-end)
+tests/test_venv_manager.py    Repo-scale task — venv_dir_for, get_fresh_venv_python/workspace_copy, get_repo_file_workspace_copy
 pyproject.toml                packaging + core deps (openai, python-dotenv, nbclient, nbformat) + dev-only extras (numpy, pandas, ipykernel, ...)
 .github/workflows/tests.yml   CI: runs all test suites on every push (network tests skipped)
 dataset/                      independent data track — see DATASET_SUMMARY.md
 NEW_DIRECTION.md              the repo-level/hybrid/agentic scope change — read this first for anything repo-level
 AGENTIC_DIRECTION_AND_FIRST_TASK.md  the staged agentic build plan — read this first for anything agent-related
 TASK_provenance_and_report.md the two-axis trust model + first transparency report spec
+TASK_repo_scale_agent.md      the repo-scale agent + evaluation-ready (fresh mode) spec
 ```
 
 `runner.py`/`diagnose.py` moved into the `repair_tool/` package as Phase 3's

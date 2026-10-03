@@ -44,6 +44,7 @@ repair-tool-diagnose = "repair_tool.diagnose:main"
 repair-tool-fix = "repair_tool.loop:main"
 repair-tool-analyze-repo = "repair_tool.repo:main"
 repair-tool-agent = "repair_tool.agent:main"
+repair-tool-agent-repo = "repair_tool.agent_repo:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -245,6 +245,66 @@ class TestAgentRepairOffline(unittest.TestCase):
         self.assertIn("LLM call failed", result.error)
 
 
+class TestAgentRepairEnvironmentModes(unittest.TestCase):
+    """TASK_repo_scale_agent.md Part A/C: agent_repair must be reusable
+    with an explicitly-provided python_exe/workspace_path (how agent_repo.py
+    runs it inside a repo's one shared environment) and with fresh=True (a
+    throwaway venv/workspace, for evaluation) -- neither path should touch
+    venv_manager's persistent, hash-cached store.
+    """
+
+    @patch("repair_tool.agent.get_workspace_copy")
+    @patch("repair_tool.agent.get_venv_python")
+    @patch("openai.OpenAI")
+    def test_explicit_python_exe_and_workspace_path_skip_venv_manager_entirely(
+        self, mock_openai_cls, mock_get_venv, mock_get_workspace
+    ):
+        mock_openai_cls.return_value.chat.completions.create.return_value = _response(
+            [_tool_call("c1", "run_target", {})]
+        )
+        with patch("repair_tool.agent_tools.run_project") as mock_run:
+            mock_run.return_value = RunResult(ok=True, returncode=0, stdout="ok\n", stderr="")
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+                result = agent_repair(
+                    "some_file.py",
+                    python_exe="/shared/repo/venv/python",
+                    workspace_path="/shared/repo/venv/workspace/some_file.py",
+                )
+
+        self.assertTrue(result.fixed)
+        self.assertEqual(result.target, "some_file.py")
+        mock_get_venv.assert_not_called()
+        mock_get_workspace.assert_not_called()
+        mock_run.assert_called_once_with(
+            "/shared/repo/venv/workspace/some_file.py", timeout=60, python_exe="/shared/repo/venv/python"
+        )
+
+    @patch("repair_tool.agent.get_fresh_workspace_copy", return_value="/tmp/fresh123/workspace/x.py")
+    @patch("repair_tool.agent.get_fresh_venv_python", return_value="/tmp/fresh123/bin/python")
+    @patch("repair_tool.agent.tempfile.mkdtemp", return_value="/tmp/fresh123")
+    @patch("repair_tool.agent.shutil.rmtree")
+    @patch("repair_tool.agent.get_workspace_copy")
+    @patch("repair_tool.agent.get_venv_python")
+    @patch("openai.OpenAI")
+    def test_fresh_uses_a_throwaway_venv_and_cleans_up_not_the_persistent_cache(
+        self, mock_openai_cls, mock_get_venv, mock_get_workspace, mock_rmtree, mock_mkdtemp, mock_fresh_venv, mock_fresh_workspace
+    ):
+        mock_openai_cls.return_value.chat.completions.create.return_value = _response(
+            [_tool_call("c1", "run_target", {})]
+        )
+        with patch("repair_tool.agent_tools.run_project") as mock_run:
+            mock_run.return_value = RunResult(ok=True, returncode=0, stdout="ok\n", stderr="")
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+                result = agent_repair("x.py", fresh=True)
+
+        self.assertTrue(result.fixed)
+        mock_get_venv.assert_not_called()
+        mock_get_workspace.assert_not_called()
+        mock_fresh_venv.assert_called_once_with("/tmp/fresh123")
+        mock_fresh_workspace.assert_called_once_with("x.py", "/tmp/fresh123")
+        mock_rmtree.assert_called_once_with("/tmp/fresh123", ignore_errors=True)
+
+
 @unittest.skipIf(SKIP_NETWORK, "SKIP_NETWORK_TESTS set")
 @unittest.skipUnless(os.environ.get("OPENAI_API_KEY"), "OPENAI_API_KEY not set")
 class TestAgentRepairNetwork(unittest.TestCase):
@@ -253,6 +313,25 @@ class TestAgentRepairNetwork(unittest.TestCase):
         self.assertEqual(result.error, "", msg=result.error)
         self.assertTrue(result.fixed)
         self.assertTrue(len(result.trace) > 0)
+
+    def test_required_behaviour_fresh_ignores_a_cached_fixed_workspace(self):
+        """TASK_repo_scale_agent.md Part C: fix a file once (caching the
+        fixed workspace), then run again with fresh=True and confirm it
+        starts from the broken original -- the agent must do real work
+        again (install/edit a fresh copy), not just see an already-passing
+        run_target and stop, which is exactly what the default (cached)
+        mode would do on a second call to the same target.
+        """
+        target = os.path.join(EXAMPLES, "01_missing_package.py")
+
+        cached = agent_repair(target)
+        self.assertTrue(cached.fixed, msg=cached.error)
+
+        fresh = agent_repair(target, fresh=True)
+        self.assertEqual(fresh.error, "", msg=fresh.error)
+        self.assertTrue(fresh.fixed)
+        fix_tools_used = [step.tool_called for step in fresh.trace if step.tool_called in ("install_package", "edit_code")]
+        self.assertTrue(fix_tools_used, "fresh=True should have had to actually fix the file again, not find it already passing")
 
 
 if __name__ == "__main__":
