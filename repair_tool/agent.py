@@ -62,6 +62,14 @@ except ImportError:
 
 MAX_STEPS = 10
 AGENT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+# Found during TASK_evaluation.md's pilot: the openai SDK's own default
+# per-request timeout is long enough (minutes) that one slow/stuck API
+# response can silently stall an entire evaluation run with no local
+# symptom to diagnose (no subprocess, no CPU use -- just blocked network
+# I/O). A bounded client-side timeout turns that into a normal "LLM call
+# failed" error on this one step instead, via the existing except-and-report
+# path below.
+_REQUEST_TIMEOUT_SECONDS = 120
 
 # Grounding -- the source of an action, fixed at the moment it's taken.
 GROUNDING_METADATA = "metadata_grounded"
@@ -133,13 +141,22 @@ class TraceStep:
 @dataclass
 class AgentResult:
     """Outcome of one agent_repair() run -- target, verdict, and the full
-    decision trace, the seed of the transparency report."""
+    decision trace, the seed of the transparency report.
+
+    `llm_calls`/`total_tokens` are cost-visibility bookkeeping for
+    TASK_evaluation.md's harness (a real evaluation run is real money) --
+    not trust data, not used by report.py, never affect `fixed`. Populated
+    passively from the OpenAI response's own `usage` field when the SDK
+    provides one; always 0 for a mocked/offline run.
+    """
 
     target: str
     fixed: bool
     trace: list[TraceStep] = field(default_factory=list)
     final_strategy: str = ""
     error: str = ""
+    llm_calls: int = 0
+    total_tokens: int = 0
 
 
 def _assistant_message_entry(message) -> dict:
@@ -229,7 +246,7 @@ def _agent_repair_loop(path: str, workspace_path: str, python_exe: str, openai, 
     documents). `path` is only used for AgentResult.target's label."""
     dispatch = agent_tools.build_dispatch(workspace_path, python_exe)
 
-    client = openai.OpenAI(api_key=api_key)
+    client = openai.OpenAI(api_key=api_key, timeout=_REQUEST_TIMEOUT_SECONDS)
     messages: list[dict] = [
         {"role": "system", "content": _SYSTEM_PROMPT},
         {
@@ -247,6 +264,8 @@ def _agent_repair_loop(path: str, workspace_path: str, python_exe: str, openai, 
     # waiting to find out if they made the project pass.
     pending_action_indices: list[int] = []
     final_strategy = ""
+    llm_calls = 0
+    total_tokens = 0
 
     while len(trace) < max_steps:
         try:
@@ -258,7 +277,16 @@ def _agent_repair_loop(path: str, workspace_path: str, python_exe: str, openai, 
                 messages=messages,
             )
         except Exception as exc:  # noqa: BLE001 - any SDK/network failure -> stop, never a crash
-            return AgentResult(target=path, fixed=False, trace=trace, error=f"LLM call failed: {exc}")
+            return AgentResult(
+                target=path, fixed=False, trace=trace, error=f"LLM call failed: {exc}",
+                llm_calls=llm_calls, total_tokens=total_tokens,
+            )
+
+        llm_calls += 1
+        usage = getattr(response, "usage", None)
+        tokens = getattr(usage, "total_tokens", None) if usage is not None else None
+        if isinstance(tokens, int):
+            total_tokens += tokens
 
         message = response.choices[0].message
         tool_calls = message.tool_calls or []
@@ -326,13 +354,19 @@ def _agent_repair_loop(path: str, workspace_path: str, python_exe: str, openai, 
                     step = trace[idx]
                     step.verification = VERIFICATION_VERIFIED
                     step.confidence = _confidence_for(step.grounding, VERIFICATION_VERIFIED)
-                return AgentResult(target=path, fixed=True, trace=trace, final_strategy=final_strategy)
+                return AgentResult(
+                    target=path, fixed=True, trace=trace, final_strategy=final_strategy,
+                    llm_calls=llm_calls, total_tokens=total_tokens,
+                )
             if name == "verify":
                 pending_action_indices = []
 
             messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result)})
 
-    return AgentResult(target=path, fixed=False, trace=trace, final_strategy=final_strategy)
+    return AgentResult(
+        target=path, fixed=False, trace=trace, final_strategy=final_strategy,
+        llm_calls=llm_calls, total_tokens=total_tokens,
+    )
 
 
 def _main() -> int:

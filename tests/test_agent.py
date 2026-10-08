@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from repair_tool.agent import AgentResult, agent_repair
+from repair_tool.agent import _REQUEST_TIMEOUT_SECONDS, AgentResult, agent_repair
 from repair_tool.runner import RunResult
 
 SKIP_NETWORK = bool(os.environ.get("SKIP_NETWORK_TESTS"))
@@ -303,6 +303,23 @@ class TestAgentRepairEnvironmentModes(unittest.TestCase):
         mock_fresh_venv.assert_called_once_with("/tmp/fresh123")
         mock_fresh_workspace.assert_called_once_with("x.py", "/tmp/fresh123")
         mock_rmtree.assert_called_once_with("/tmp/fresh123", ignore_errors=True)
+
+    @patch("repair_tool.agent.get_workspace_copy", return_value=os.path.join(EXAMPLES, "01_missing_package.py"))
+    @patch("repair_tool.agent.get_venv_python", return_value="/fake/python")
+    @patch("openai.OpenAI")
+    def test_openai_client_is_given_a_bounded_timeout(self, mock_openai_cls, _mock_venv, _mock_workspace):
+        """Regression test for a real bug found running the evaluation
+        pilot: with no client-side timeout, a slow/stuck OpenAI response
+        can block a whole evaluation run for minutes with no local symptom
+        (no subprocess, no CPU use) to diagnose. The client must be built
+        with an explicit timeout so a hang degrades to a normal
+        'LLM call failed' error on that one step instead.
+        """
+        mock_openai_cls.return_value.chat.completions.create.return_value = _response([], content="stop")
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+            agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+
+        mock_openai_cls.assert_called_once_with(api_key="sk-fake-for-test", timeout=_REQUEST_TIMEOUT_SECONDS)
 
 
 @unittest.skipIf(SKIP_NETWORK, "SKIP_NETWORK_TESTS set")

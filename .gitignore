@@ -10,6 +10,10 @@ venv/
 *.sqlite
 *.sqlite3
 computational-reproducibility-pmc/
+computational-reproducibility-pmc.zip
+*.zip
+dataset/raw/
 *.egg-info/
 build/
 dist/
+evaluation/results/

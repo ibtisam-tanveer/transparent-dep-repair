@@ -526,6 +526,55 @@ do," which would quietly corrupt a dataset evaluation's results. **Any
 dataset evaluation must pass `fresh=True`** — a brand-new, throwaway venv
 and fresh file copies every time, deleted again once that run ends.
 
+## Evaluation — running the tool on real data and measuring it
+
+The pivot from building to measuring, per `TASK_evaluation.md`. Uses the
+**2023 GigaScience rerun** (Zenodo record 8226725, 27,271 notebooks across
+5,240 repositories) — not the 2021 run `DATASET_SUMMARY.md` describes,
+which is now superseded.
+
+| File | Purpose |
+|---|---|
+| `DEPENDENCY_FAILURE_TAXONOMY.md` | The A-E dependency-failure-cause taxonomy (missing dependency / moved import / removed API / version conflict / not-a-dependency-failure) + confirmed/candidate/excluded tiers, used to label the failure set and report results *by cause*, not by raw symptom |
+| `dataset/taxonomy.py` | Classifies one `executions.reason` string into (category, tier) — a dataset-specific classifier, not a reuse of `diagnose.py` (see `dataset/NOTES_2023.md` for why) |
+| `dataset/extract_failures_2023.py` | Queries the 2023 `db.sqlite`, classifies every real execution-exception row, writes `dataset/failures_2023.csv` |
+| `dataset/NOTES_2023.md` | Findings: the nested two-database zip structure, the query population, and a real labelling blind spot (category B is structurally unobservable from this db's bare-exception-class-name logging) |
+| `evaluation/run_eval.py` | The harness: samples repositories from the labelled set, clones each, and records one JSONL row per labelled notebook as it's produced. Resumable (checkpointed per repo), cost-logged (`llm_calls`/`total_tokens` per notebook), sample-able (`--sample`, `--limit-minutes`, `--max-llm-calls`), cleans up every clone |
+| `evaluation/_repo_runner.py` | `run_repo_incrementally()` — reuses `repo.py`'s discovery/dependency-install and `agent.agent_repair()` per file (the same primitives `agent_repo.py` itself calls), but *yields* one result per file as it finishes, with a time budget checked between files |
+| `evaluation/_repo_worker.py` | The subprocess entry point `run_eval.py` runs each repo in, streaming each file's result to disk immediately (flushed) as `_repo_runner` yields it |
+| `evaluation/analyze_results.py` | Turns result rows into the headline numbers: effectiveness overall and per category (on both a confirmed-only and a confirmed+candidate denominator), grounded-vs-proposed + confidence distribution, cap-limited vs. genuine failures, and the cross-file "fixed for free" count |
+
+```bash
+python dataset/extract_failures_2023.py
+python evaluation/run_eval.py --sample 20 --tag pilot --per-file-budget-minutes 10
+python evaluation/analyze_results.py evaluation/results/pilot.jsonl
+```
+
+**Two real evaluation-readiness bugs found by smoke-testing the harness,
+not by writing it:**
+
+1. With no client-side timeout, a slow/stuck OpenAI response could block
+   an entire run for minutes with no local symptom to diagnose (no
+   subprocess, no CPU use — just blocked network I/O). `agent.py`'s OpenAI
+   client now has an explicit 120s timeout, permanently, not just for
+   evaluation.
+2. A fixed per-repo timeout is unfair across repo sizes, and — worse — the
+   original design called `agent_repair_repo()` as one all-or-nothing
+   block, so a timeout discarded *every* result for that repo, including
+   notebooks already fixed before the cut-off. A real smoke test found an
+   11-notebook repository that ran 43 minutes before being stopped.
+   **Fixed with a redesign**: each repo's time budget now scales with its
+   real discovered file count, and results stream to disk per file as
+   they finish, so a cutoff keeps whatever already succeeded. Re-run for
+   real after the fix, the same repo went from "0/11 usable" to "4/11
+   genuinely attempted + 7/11 honestly marked not-reached" — real,
+   non-wasted signal either way.
+
+See `EVALUATION_PILOT_SUMMARY.md` for the full writeup — the harness is
+validated by two 3-repo smoke tests, but the actual ~20-50 repo pilot
+`TASK_evaluation.md` asks for hasn't been run yet, so there are no
+reportable effectiveness numbers in it yet.
+
 ## Roadmap (out of scope so far, tracked here for context)
 
 - **Multiple agents** (diagnosis/repair/verification split) and **a
@@ -587,13 +636,26 @@ repair_tool/agent_repo.py     Repo-scale task — agent_repair_repo(), RepoAgent
 tests/fixtures/agent_repo/    Repo-scale task — a tiny real fixture repo (passing/missing-package/shared-dep/removed-API files)
 tests/test_agent_repo.py      Repo-scale task — orchestration, shared-env, error-isolation, fresh mode (offline + real end-to-end)
 tests/test_venv_manager.py    Repo-scale task — venv_dir_for, get_fresh_venv_python/workspace_copy, get_repo_file_workspace_copy
+dataset/taxonomy.py           Evaluation task — classify() a GigaScience executions.reason into the A-E taxonomy + tier
+dataset/extract_failures_2023.py  Evaluation task — queries the 2023 db, writes dataset/failures_2023.csv
+dataset/NOTES_2023.md         Evaluation task — the two-database-zip finding, query population, category-B blind spot
+tests/test_taxonomy.py        Evaluation task — classify() against real observed db reason values
+evaluation/run_eval.py        Evaluation task — the harness: sample/clone/record, resumable, file-count-scaled time budget
+evaluation/_repo_runner.py    Evaluation task — run_repo_incrementally(): per-file streaming driver, reused repo.py/agent.py primitives
+evaluation/_repo_worker.py    Evaluation task — subprocess entry point that streams each file's result to disk as it finishes
+evaluation/analyze_results.py Evaluation task — turns result rows into the thesis's headline numbers
+tests/test_run_eval.py        Evaluation task — harness resumability, sampling, budget-scaling, partial-row preservation (offline)
+tests/test_repo_runner.py     Evaluation task — the incremental per-file driver: ordering, budget cutoff, error isolation (offline)
+tests/test_analyze_results.py Evaluation task — effectiveness/grounding/cap-hit/cross-file number-crunching (offline)
 pyproject.toml                packaging + core deps (openai, python-dotenv, nbclient, nbformat) + dev-only extras (numpy, pandas, ipykernel, ...)
 .github/workflows/tests.yml   CI: runs all test suites on every push (network tests skipped)
-dataset/                      independent data track — see DATASET_SUMMARY.md
+dataset/                      independent data track — see DATASET_SUMMARY.md (2021, superseded) and NOTES_2023.md (current)
 NEW_DIRECTION.md              the repo-level/hybrid/agentic scope change — read this first for anything repo-level
 AGENTIC_DIRECTION_AND_FIRST_TASK.md  the staged agentic build plan — read this first for anything agent-related
 TASK_provenance_and_report.md the two-axis trust model + first transparency report spec
 TASK_repo_scale_agent.md      the repo-scale agent + evaluation-ready (fresh mode) spec
+DEPENDENCY_FAILURE_TAXONOMY.md  the A-E dependency-failure-cause taxonomy + confidence tiers
+TASK_evaluation.md            the evaluation harness + pilot-run spec
 ```
 
 `runner.py`/`diagnose.py` moved into the `repair_tool/` package as Phase 3's
