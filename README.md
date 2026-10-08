@@ -1,6 +1,12 @@
-# Master's thesis: Muhammad Ibtisam Tanveer
+# AI-Driven Transparent Repair of Software Dependency Configurations
 
-- `code/` — implementation (transparent dependency repair)
+MSc thesis project (Muhammad Ibtisam Tanveer, supervised by Dr. Sheeba
+Samuel, MSc Web Engineering / TUC). The tool repairs broken Python
+dependency configurations — in notebooks and whole repositories — and
+explains every decision it makes, rather than just applying a fix silently.
+
+- `code/` — implementation (transparent dependency repair); see
+  [`code/README.md`](code/README.md) for the full build, phase by phase
 - `docs/` — notes, meeting minutes, documentation
 - `thesis/` — thesis sources
 
