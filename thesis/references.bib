@@ -1,0 +1,124 @@
+% Bibliography for the thesis (IEEE style via IEEEtran.bst).
+% Every entry below was checked against the publisher/registry record (arXiv API, Crossref,
+% Semantic Scholar) while setting up the thesis. Anything NOT verified carries a "% TODO verify" line.
+
+@inproceedings{pimentel2019large,
+  author    = {Pimentel, Jo{\~a}o Felipe and Murta, Leonardo and Braganholo, Vanessa and Freire, Juliana},
+  title     = {A Large-Scale Study About Quality and Reproducibility of {Jupyter} Notebooks},
+  booktitle = {Proc. 16th Int. Conf. Mining Software Repositories (MSR)},
+  year      = {2019},
+  pages     = {507--517},
+  publisher = {IEEE},
+  doi       = {10.1109/MSR.2019.00077}
+}
+
+@article{samuel2024computational,
+  author  = {Samuel, Sheeba and Mietchen, Daniel},
+  title   = {Computational reproducibility of {Jupyter} notebooks from biomedical publications},
+  journal = {GigaScience},
+  volume  = {13},
+  year    = {2024},
+  pages   = {giad113},
+  doi     = {10.1093/gigascience/giad113}
+  % The study was first circulated as a 2023 preprint; the journal version is 2024 (vol. 13).
+  % TODO: author to confirm which year the thesis should cite (the data set is called "2023 corpus" in the repository).
+}
+
+@inproceedings{horton2019dockerizeme,
+  author    = {Horton, Eric and Parnin, Chris},
+  title     = {{DockerizeMe}: Automatic Inference of Environment Dependencies for {Python} Code Snippets},
+  booktitle = {Proc. 41st Int. Conf. Software Engineering (ICSE)},
+  year      = {2019},
+  pages     = {328--338},
+  publisher = {IEEE},
+  doi       = {10.1109/ICSE.2019.00047}
+}
+
+@inproceedings{ye2022pyego,
+  author    = {Ye, Hongjie and Chen, Wei and Dou, Wensheng and Wu, Guoquan and Wei, Jun},
+  title     = {Knowledge-based environment dependency inference for {Python} programs},
+  booktitle = {Proc. 44th Int. Conf. Software Engineering (ICSE)},
+  year      = {2022},
+  pages     = {1245--1256},
+  publisher = {ACM},
+  doi       = {10.1145/3510003.3510127}
+  % The tool is called PyEGo in the paper (as in the task description); only the title is shown by Crossref.
+}
+
+@inproceedings{cheng2022pycre,
+  author    = {Cheng, Wei and Zhu, Xiangrong and Hu, Wei},
+  title     = {Conflict-aware inference of {Python} compatible runtime environments with domain knowledge graph},
+  booktitle = {Proc. 44th Int. Conf. Software Engineering (ICSE)},
+  year      = {2022},
+  pages     = {451--461},
+  publisher = {ACM},
+  doi       = {10.1145/3510003.3510078}
+  % TODO verify: that this paper is the tool the advisor's outline calls "PyCRE" (name taken from the outline; the title does not contain it).
+}
+
+@article{cheng2024revisiting,
+  author  = {Cheng, Wei and Hu, Wei and Ma, Xiaoxing},
+  title   = {Revisiting Knowledge-Based Inference of {Python} Runtime Environments: A Realistic and Adaptive Approach},
+  journal = {IEEE Trans. Software Engineering},
+  volume  = {50},
+  number  = {2},
+  year    = {2024},
+  pages   = {258--279},
+  doi     = {10.1109/TSE.2023.3346474}
+  % TODO verify: the research note names this line of work "ReadPyE"; the mapping of that name to this TSE paper is not confirmed.
+}
+
+@inproceedings{wang2021sniffer,
+  author    = {Wang, Jiawei and Li, Li and Zeller, Andreas},
+  title     = {Restoring Execution Environments of {Jupyter} Notebooks},
+  booktitle = {Proc. 43rd Int. Conf. Software Engineering (ICSE)},
+  year      = {2021},
+  pages     = {1622--1633},
+  publisher = {IEEE},
+  doi       = {10.1109/ICSE43902.2021.00144},
+  note      = {arXiv:2103.02959}
+  % The tool is called SnifferDog in the task description.
+  % TODO verify: that the tool name "SnifferDog" appears in this paper (arXiv/Crossref confirm title, authors, venue, pages).
+}
+
+@misc{bartlett2025lastdependency,
+  author       = {Bartlett, Antony and Liem, Cynthia and Panichella, Annibale},
+  title        = {The Last Dependency Crusade: Solving {Python} Dependency Conflicts with {LLMs}},
+  howpublished = {arXiv preprint arXiv:2501.16191},
+  year         = {2025}
+  % Preprint (v2). TODO verify: whether a peer-reviewed version has appeared before submission.
+}
+
+@misc{hu2025repo2run,
+  author       = {Hu, Ruida and Peng, Chao and Wang, Xinchen and Xu, Junjielong and Gao, Cuiyun},
+  title        = {{Repo2Run}: Automated Building Executable Environment for Code Repository at Scale},
+  howpublished = {arXiv preprint arXiv:2502.13681},
+  year         = {2025}
+  % Preprint (v4). The research note says "NeurIPS 2025 spotlight" and "86%"; neither was verified.
+  % TODO verify before stating either in the text.
+}
+
+@misc{eliseeva2025envbench,
+  author       = {Eliseeva, Aleksandra and Kovrigin, Alexander and Kholkin, Ilia and Bogomolov, Egor and Zharov, Yaroslav},
+  title        = {{EnvBench}: A Benchmark for Automated Environment Setup},
+  howpublished = {arXiv preprint arXiv:2503.14443},
+  year         = {2025}
+}
+
+@misc{lei2025pcreq,
+  author       = {Lei, Huashan and Xiao, Guanping and Liu, Yepang and Zheng, Zheng},
+  title        = {{PCREQ}: Automated Inference of Compatible Requirements for {Python} Third-party Library Upgrades},
+  howpublished = {arXiv preprint arXiv:2508.02023},
+  year         = {2025}
+  % The research note quotes 94% / REQBench 2,095 cases / PyEGo ~37%; these were not verified. TODO verify before use.
+}
+
+@inproceedings{zhu2021relancer,
+  author    = {Zhu, Chenguang and Saha, Ripon K. and Prasad, Mukul R. and Khurshid, Sarfraz},
+  title     = {Restoring the Executability of {Jupyter} Notebooks by Automatic Upgrade of Deprecated {APIs}},
+  booktitle = {Proc. 36th IEEE/ACM Int. Conf. Automated Software Engineering (ASE)},
+  year      = {2021},
+  pages     = {240--252},
+  publisher = {IEEE},
+  doi       = {10.1109/ASE51524.2021.9678889}
+}

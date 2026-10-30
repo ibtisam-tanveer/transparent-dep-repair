@@ -1,0 +1,111 @@
+% Umgebung für das Deckblatt
+\newenvironment{tuctitlepage}
+{
+  \cleardoublepage
+  \titlepage
+  \center
+}
+{
+  \endcenter
+  \endtitlepage
+}
+
+
+% Professur, Institut, ...
+\newenvironment{tuctitleorgunit}{\center}{\endcenter}
+
+
+% Logo
+\newcommand{\tuctitlelogoname}{figures/tuc_green_margin}
+
+\newcommand{\tuctitlelogo}[1][0.6\linewidth]
+{%
+  \begin{center}%
+  \includegraphics[width=#1]{\tuctitlelogoname}%
+  \end{center}%
+}
+
+
+% Block mit kleiner Überschrift.
+\newenvironment{tuctitleblock}[2][\medskipamount]
+{\center\vspace*{#1}{#2\par}\vspace*{#1}}
+{\par\endcenter}
+
+
+% Art der Arbeit
+\newcommand{\tuctitlethesistype}[1]
+{\begin{center}{\huge\bfseries#1}\par\end{center}}
+
+
+% Angestrebter Abschluss
+\newcommand{\tuctitledegreephrase}{zur Erlangung des akademischen Grades}
+\newcommand{\tuctitledegreeline}[1]
+{{\LARGE #1}\par}
+\newcommand{\tuctitledegree}[2][\medskipamount]
+{\begin{tuctitleblock}[#1]{\tuctitledegreephrase}%
+\tuctitledegreeline{#2}%
+\end{tuctitleblock}}
+
+
+% Autor
+\newcommand{\tuctitleauthorphrase}{vorgelegt von}
+\newcommand{\tuctitleauthorline}[1]
+{{\Large #1}\par}
+\newcommand{\tuctitleauthor}[2][\medskipamount]
+{\begin{tuctitleblock}[#1]{\tuctitleauthorphrase}%
+\tuctitleauthorline{#2}%
+\end{tuctitleblock}}
+
+
+% Lehrveranstaltung
+\newcommand{\tuctitlecoursephrase}{zur Lehrveranstaltung}
+\newcommand{\tuctitlecourseline}[1]
+{{\LARGE #1}\par}
+\newcommand{\tuctitlecourse}[2][\medskipamount]
+{\begin{tuctitleblock}[#1]{\tuctitlecoursephrase}%
+\tuctitlecourseline{#2}%
+\end{tuctitleblock}}
+
+
+% Semester
+\newcommand{\tuctitletermphrase}{im}
+\newcommand{\tuctitletermline}[1]
+{{\Large #1}\par}
+\newcommand{\tuctitleterm}[2][\medskipamount]
+{\begin{tuctitleblock}[#1]{\tuctitletermphrase}%
+\tuctitletermline{#2}%
+\end{tuctitleblock}}
+
+
+% Thema der Arbeit
+\newenvironment{tuctitletopic}
+{\center\LARGE\medskip\begingroup}
+{\par\endgroup\medskip\endcenter}
+
+
+%
+% Deckblatttabellen ohne Einzug
+%
+% #1 -> Formatierung der linken Spalte
+% #2 -> Anzahl rechter Spalten
+%
+\newenvironment{tuctitletable}[2][]
+{\center\tabular{>{#1}r*{#2}{l}}}
+{\endtabular\endcenter}
+
+
+%
+% Deckblatttabellen mit Einzug
+%
+% #1 -> Formatierung der linken Spalte
+% #2 -> Anzahl rechter Spalten
+% #3 -> Breite der linken Spalte
+%
+\newenvironment{tuctitletableindent}[3][]
+{\flushleft\tabular{@{}>{\raggedleft#1}p{#3-\tabcolsep}*{#2}{l}}}%
+{\endtabular\endflushleft}
+
+
+% Datum, Ort
+\newcommand{\tuctitleplacedate}[1]
+{\center\medskip#1\par\endcenter}

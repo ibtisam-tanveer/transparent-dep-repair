@@ -1,0 +1,21 @@
+% TODO: Loaklisierung
+
+\newenvironment{tucerklaerung}[1][Selbstständigkeitserklärung]
+{
+  \pagestyle{empty}
+  \thispagestyle{empty}
+  \newcommand{\tucsignature}[2][5cm]%
+  {
+    \par
+    \begin{flushright}
+    \begin{minipage}{##1}
+    \footnotesize
+    \vbox{\hbox to \hsize{\rule{0pt}{7ex}\dotfill}\hbox{\hspace{1em}##2}}
+    \end{minipage}
+    \end{flushright}
+  }
+  \tucsimplesection{#1}
+}
+{
+  \endtucsimplesection
+}
