@@ -65,7 +65,7 @@
   year    = {2024},
   pages   = {258--279},
   doi     = {10.1109/TSE.2023.3346474}
-  % TODO verify: the research note names this line of work "ReadPyE"; the mapping of that name to this TSE paper is not confirmed.
+  % The tool is called ReadPyE. Mapping verified: the reference list of PLLM (arXiv:2501.16191, ref. [10]) cites exactly this paper for ReadPyE.
 }
 
 @inproceedings{wang2021sniffer,
@@ -86,7 +86,8 @@
   title        = {The Last Dependency Crusade: Solving {Python} Dependency Conflicts with {LLMs}},
   howpublished = {arXiv preprint arXiv:2501.16191},
   year         = {2025}
-  % Preprint (v2). TODO verify: whether a peer-reviewed version has appeared before submission.
+  % Preprint (v2, 16 Oct 2025). The vision document says it was accepted at the AgenticSE workshop @ ASE 2025; not verified in the paper text.
+  % TODO verify: workshop acceptance / whether a peer-reviewed version exists before submission.
 }
 
 @misc{hu2025repo2run,
@@ -94,8 +95,8 @@
   title        = {{Repo2Run}: Automated Building Executable Environment for Code Repository at Scale},
   howpublished = {arXiv preprint arXiv:2502.13681},
   year         = {2025}
-  % Preprint (v4). The research note says "NeurIPS 2025 spotlight" and "86%"; neither was verified.
-  % TODO verify before stating either in the text.
+  % Verified in the paper (v4): 39th NeurIPS (2025) conference paper; 86.0% success on 420 Python repositories WITH unit tests; 'first LLM-based agent' is the authors' own claim.
+  % NOT verified: the 'spotlight' status stated in the research note -- do not state it. TODO verify if wanted.
 }
 
 @misc{eliseeva2025envbench,
@@ -103,6 +104,8 @@
   title        = {{EnvBench}: A Benchmark for Automated Environment Setup},
   howpublished = {arXiv preprint arXiv:2503.14443},
   year         = {2025}
+  % The PDF header says 'Published as a conference paper at ICLR 2025'; the vision document says workshop DL4C @ ICLR 2025.
+  % TODO verify the exact venue (main conference vs. workshop) before citing it as peer-reviewed.
 }
 
 @misc{lei2025pcreq,
@@ -121,4 +124,79 @@
   pages     = {240--252},
   publisher = {IEEE},
   doi       = {10.1109/ASE51524.2021.9678889}
+}
+
+@article{jin2026modernization,
+  author  = {Jin, Bihui and Wang, Kaiyuan and Nie, Pengyu},
+  title   = {Automated Modernization of Machine Learning Engineering Notebooks for Reproducibility},
+  journal = {Proc. ACM on Software Engineering},
+  volume  = {3},
+  number  = {ISSTA},
+  year    = {2026},
+  pages   = {ISSTA075},
+  doi     = {10.1145/3832166}
+  % Verified in the arXiv PDF (2602.07195v2): ISSTA 2026, article ISSTA075, DOI as given.
+}
+
+@inproceedings{noller2022trust,
+  author    = {Noller, Yannic and Shariffdeen, Ridwan and Gao, Xiang and Roychoudhury, Abhik},
+  title     = {Trust Enhancement Issues in Program Repair},
+  booktitle = {Proc. 44th Int. Conf. Software Engineering (ICSE)},
+  year      = {2022},
+  pages     = {2228--2240},
+  publisher = {ACM},
+  doi       = {10.1145/3510003.3510040}
+}
+
+@inproceedings{ryan2019trust,
+  author    = {Ryan, Tyler J. and Alarcon, Gene M. and Walter, Charles and Gamble, Rose and Jessup, Sarah A. and Capiola, August and Pfahler, Marc D.},
+  title     = {Trust in Automated Software Repair: The Effects of Repair Source, Transparency, and Programmer Experience on Perceived Trustworthiness and Trust},
+  booktitle = {HCI for Cybersecurity, Privacy and Trust (HCI-CPT 2019)},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {11594},
+  year      = {2019},
+  pages     = {452--470},
+  publisher = {Springer},
+  doi       = {10.1007/978-3-030-22351-9_31}
+  % Crossref returns only the short title "Trust in Automated Software Repair"; the full title is taken from the vision document.
+  % TODO verify the full title and the volume number against the Springer page.
+}
+
+@inproceedings{williams2024bloomberg,
+  author    = {Williams, David and Callan, James and Kirbas, Serkan and Mechtaev, Sergey and Petke, Justyna and Prideaux-Ghee, Thomas and Sarro, Federica},
+  title     = {User-Centric Deployment of Automated Program Repair at {Bloomberg}},
+  booktitle = {Proc. 46th Int. Conf. Software Engineering: Software Engineering in Practice (ICSE-SEIP)},
+  year      = {2024},
+  pages     = {81--91},
+  publisher = {ACM},
+  doi       = {10.1145/3639477.3639756}
+}
+
+@misc{ye2025copilotlens,
+  author       = {Ye, Runlong and Zhang, Zeling and Almazroua, Boushra and Liut, Michael},
+  title        = {Beyond Autocomplete: Designing {CopilotLens} Towards Transparent and Explainable {AI} Coding Agents},
+  howpublished = {arXiv preprint arXiv:2506.20062},
+  year         = {2025}
+  % Preprint (v3). The vision document says it appeared at the XLLM-Reason-Plan workshop @ COLM 2025; not verified. TODO verify.
+}
+
+@inproceedings{wang2024trust,
+  author    = {Wang, Ruotong and Cheng, Ruijia and Ford, Denae and Zimmermann, Thomas},
+  title     = {Investigating and Designing for Trust in {AI}-powered Code Generation Tools},
+  booktitle = {Proc. 2024 ACM Conf. Fairness, Accountability, and Transparency (FAccT)},
+  year      = {2024},
+  pages     = {1475--1493},
+  publisher = {ACM},
+  doi       = {10.1145/3630106.3658984}
+}
+
+@article{lee2004trust,
+  author  = {Lee, John D. and See, Katrina A.},
+  title   = {Trust in Automation: Designing for Appropriate Reliance},
+  journal = {Human Factors},
+  volume  = {46},
+  number  = {1},
+  year    = {2004},
+  pages   = {50--80},
+  doi     = {10.1518/hfes.46.1.50_30392}
 }
