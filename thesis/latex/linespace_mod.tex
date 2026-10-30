@@ -1,0 +1,55 @@
+%
+% Eine Änderung des Zeilenabstands wirkt sich nur auf Mengentext aus. In
+% Fußnoten und Gleitumgebungen kommt der einfache Zeilenabstand zur Anwendung.
+% Der folgende TeX-Code aktiviert den erweiterten Zeilenabstand für diese
+% Fälle.
+%
+
+
+%
+% Erweiterter Zeilenabstand in Gleitumgebungen
+%
+\makeatletter
+\let\@xfloat=\latex@xfloat
+\makeatother
+
+
+%
+% Erweiterter Zeilenabstand in Fußnoten
+%
+\makeatletter
+\long\def\@footnotetext#1{%
+  \insert\footins{%
+    \reset@font\footnotesize
+    \interlinepenalty\interfootnotelinepenalty
+    \splittopskip\footnotesep
+    \splitmaxdepth \dp\strutbox \floatingpenalty \@MM
+    \hsize\columnwidth
+    \@parboxrestore
+    \protected@edef\@currentlabel{%
+      \csname p@footnote\endcsname\@thefnmark
+    }%
+    \color@begingroup
+      \@makefntext{%
+        \rule\z@\footnotesep\ignorespaces#1\@finalstrut\strutbox}%
+    \color@endgroup}}
+\makeatother
+
+
+%
+% Erweiterter Zeilenabstand in Fußnote von minipages
+%
+\makeatletter
+\long\def\@mpfootnotetext#1{%
+  \global\setbox\@mpfootins\vbox{%
+    \unvbox \@mpfootins
+    \reset@font\footnotesize
+    \hsize\columnwidth
+    \@parboxrestore
+    \protected@edef\@currentlabel{%
+      \csname p@mpfootnote\endcsname\@thefnmark}%
+    \color@begingroup
+      \@makefntext{%
+       \rule\z@\footnotesep\ignorespaces#1\@finalstrut\strutbox}%
+   \color@endgroup}}
+\makeatother

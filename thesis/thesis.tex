@@ -1,0 +1,186 @@
+\documentclass[twoside,a4paper,11pt,openright]{report}
+
+
+%
+% Base packages. Only change if you know what you are doing.
+%
+\usepackage[utf8]{inputenc}	% input encoding setting
+\usepackage[english]{babel}	% english hyphenation
+\usepackage{newpxtext}		% font palatino
+\usepackage{newpxmath}		% matching math-font
+\usepackage[T1]{fontenc}	% font encoding setting
+\usepackage{amsmath}		% math extensions
+\usepackage{microtype}		% improved microtypography
+\usepackage{csquotes}		% contextual quotes
+\usepackage{calc}		% calculation of tex dimensions
+\usepackage[%
+  inner=25mm,%
+  outer=35mm,%
+  top=25mm,%
+  bottom=30mm,%
+  includeheadfoot,%
+  headheight=14pt,%
+  marginparwidth=25mm%
+]{geometry}			% adjustment of type area
+\usepackage{parskip}		% no indentation
+\usepackage{emptypage}		% no page numbers on empty pages
+\usepackage{array}		% table extension
+\usepackage{graphicx}		% integration of graphics
+\usepackage{float}		% adjustment of floating environments
+\usepackage{fancyhdr}		% customization of headers and footers
+
+
+%
+% Packages that could be included if needed.
+%
+
+%\usepackage{biblatex}		% bibliographie
+%\usepackage{textcomp}
+%\usepackage{xcolor}		% colours
+%\usepackage{subcaption}	% subnumbering for illustrations
+%\usepackage{listings}		% source code listings
+%\usepackage{listingsutf8}
+%\usepackage{units}		% physical units
+% TODO: caption
+% TODO: rotating
+% TODO: paralist
+% TODO: tikz
+
+
+%
+% The hyperref package enables links within a document. For technical reasons 
+% it must be loaded as one of the last packages. 
+% Some packages should only be loaded after hyperref. 
+% See section 9 in the package documentation: https://ctan.org/pkg/hyperref
+%
+
+\usepackage{cite}		% IEEE-style grouped numeric citations (with IEEEtran.bst)
+\usepackage[printonlyused]{acronym}	% list of abbreviations: first \ac{..} expands, later ones abbreviate
+
+\usepackage{hyperref}
+\hypersetup{
+  pdftitle={AI-Driven Transparent Repair of Software Dependency Configurations},
+  pdfauthor={Muhammad Ibtisam Tanveer},
+  pdfsubject={Master's thesis, Chemnitz University of Technology},
+  hidelinks
+}
+
+
+%
+% Packages that are only important for the design. 
+% They can be removed after completion.
+%
+\usepackage{todonotes}		% TODO-remarks
+\usepackage{layout}		% representation of print space
+
+% Insert line numbers for correction notes.
+%\usepackage[switch*]{lineno}
+%\linenumbers
+
+
+
+%
+% This approach fools TeXstudio and Texmaker to not show the included files in
+% the structure tree. This promotes clarity. Files inside the `latex/'
+% directory are not expected to be edited and thus should not be selectable.
+% Effectively the command \myinput is just an alias for \input but won't be
+% recognized be the editor.
+%
+\let\myinput\input
+
+\myinput{latex/float}		% adjustments for float environments
+\myinput{latex/titlepage}	% Format template for the cover sheet
+\myinput{latex/simplesection}	% simple headings for tasks, etc.
+\myinput{latex/declaration}	% format template for the declaration of independence (Selbständigkeitserklärung)
+
+% Activate if needed
+%\myinput{latex/fancyhdr}	% header and footer settings
+%\myinput{latex/linespace_md}	% extended line spacing in floating environments, footnotes and minpages
+
+
+
+%%
+%% Load literature database.
+%%
+% Bibliography: BibTeX with IEEEtran.bst; see the end of the document.
+
+
+
+\begin{document}
+%
+% preamble and directories
+%
+
+% roman page numbers for the opening credits
+\pagenumbering{roman}
+
+\input{content/titlepage}
+
+% short presentation
+\cleardoublepage
+\input{content/abstract}
+
+% given task/topic
+\cleardoublepage
+\input{content/topic}
+
+% table of contents
+\tableofcontents
+
+\cleardoublepage
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+\cleardoublepage
+\listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
+\cleardoublepage
+\input{content/abbreviations}
+
+
+
+%
+% text body
+%
+
+% arabic page numbers for the main part
+\cleardoublepage
+\pagenumbering{arabic}
+
+\input{content/ch01_introduction}
+\input{content/ch02_background}
+\input{content/ch03_related_work}
+\input{content/ch04_approach}
+\input{content/ch05_implementation}
+\input{content/ch06_evaluation}
+\input{content/ch07_conclusion}
+
+
+%
+% Attachments
+%
+
+\appendix
+\part*{Appendix}
+\markboth{}{}
+
+%% separate heading in the table of contents if desired
+%\addcontentsline{toc}{part}{Appendix}
+
+\input{content/appendix_code}
+\input{content/appendix_data}
+
+
+%% Bibliography
+\cleardoublepage
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+\addcontentsline{toc}{chapter}{Bibliography}
+
+% TODO: Index
+% TODO: Glossar
+
+\cleardoublepage
+\input{content/acknowledgment}
+\cleardoublepage
+\input{content/declaration}
+\end{document}
