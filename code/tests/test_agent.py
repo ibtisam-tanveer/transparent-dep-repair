@@ -35,6 +35,20 @@ def _response(tool_calls=None, content=None):
 @patch("repair_tool.agent.get_workspace_copy", return_value=os.path.join(EXAMPLES, "01_missing_package.py"))
 @patch("repair_tool.agent.get_venv_python", return_value="/fake/python")
 class TestAgentRepairOffline(unittest.TestCase):
+    @patch("openai.OpenAI")
+    def test_a_response_with_no_choices_is_an_llm_error_not_a_crash(self, mock_openai_cls, _venv, _workspace):
+        """kiste_smoke_v6: two notebooks ended with an unexplained
+        "TypeError: 'NoneType' object is not subscriptable" because a reply
+        without `choices` was indexed outside the LLM-error handler."""
+        for empty in (None, []):
+            response = MagicMock()
+            response.choices = empty
+            mock_openai_cls.return_value.chat.completions.create.side_effect = [response]
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+            self.assertFalse(result.fixed)
+            self.assertEqual(result.stop_reason, "error")
+            self.assertIn("no choices", result.error)
+
     """The LLM is fully mocked (scripted tool-call sequences) -- exercises
     only the agent's own loop: dispatching tools, building the trace, and
     tagging the two-axis trust model (grounding/verification/confidence).
@@ -64,7 +78,7 @@ class TestAgentRepairOffline(unittest.TestCase):
             _response([_tool_call("c5", "verify", {})]),
         ]
 
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
             result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
 
         self.assertIsInstance(result, AgentResult)
@@ -108,7 +122,7 @@ class TestAgentRepairOffline(unittest.TestCase):
             _response([_tool_call("c4", "verify", {})]),
         ]
 
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}), \
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True), \
                 patch("repair_tool.agent_tools.apply_module.apply_code_edit", return_value=(True, "applied")):
             result = agent_repair(os.path.join(EXAMPLES, "02_numpy_float.py"))
 
@@ -160,7 +174,7 @@ class TestAgentRepairOffline(unittest.TestCase):
             _response([_tool_call("c8", "verify", {})]),
         ]
 
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
             result = agent_repair(os.path.join(EXAMPLES, "02_numpy_float.py"))
 
         self.assertTrue(result.fixed)
@@ -195,7 +209,7 @@ class TestAgentRepairOffline(unittest.TestCase):
             _response([_tool_call("c1", "run_target", {})]),
         ]
 
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
             result = agent_repair(os.path.join(EXAMPLES, "02_numpy_float.py"))
 
         self.assertTrue(result.fixed)
@@ -211,7 +225,7 @@ class TestAgentRepairOffline(unittest.TestCase):
             _response([_tool_call(f"c{i}", "run_target", {})]) for i in range(10)
         ]
 
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
             result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"), max_steps=3)
 
         self.assertFalse(result.fixed)
@@ -222,7 +236,7 @@ class TestAgentRepairOffline(unittest.TestCase):
         mock_openai_cls.return_value.chat.completions.create.return_value = _response(
             [], content="I don't know how to fix this."
         )
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
             result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
         self.assertFalse(result.fixed)
         self.assertEqual(result.trace, [])
@@ -237,12 +251,165 @@ class TestAgentRepairOffline(unittest.TestCase):
         self.assertEqual(result.trace, [])
 
     @patch("openai.OpenAI")
+    @patch("repair_tool.agent.AGENT_BASE_URL", None)
+    def test_kiste_token_is_used_when_openai_key_is_unset(self, mock_openai_cls, _mock_venv, _mock_workspace):
+        """LLM_SETUP_kiste.md: KISTE_API_TOKEN works as the sole credential
+        for the self-hosted endpoint, which has no OPENAI_API_KEY at all."""
+        mock_openai_cls.return_value.chat.completions.create.return_value = _response([], content="give up")
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ.pop("OPENAI_API_KEY", None)
+            os.environ["KISTE_API_TOKEN"] = "kiste-fake-for-test"
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+        self.assertEqual(result.error, "")
+        mock_openai_cls.assert_called_once_with(
+            api_key="kiste-fake-for-test", base_url=None, timeout=_REQUEST_TIMEOUT_SECONDS
+        )
+
+    @patch("openai.OpenAI")
+    @patch("repair_tool.agent.AGENT_BASE_URL", None)
+    def test_kiste_token_takes_priority_when_both_keys_are_set(self, mock_openai_cls, _mock_venv, _mock_workspace):
+        """Regression test for a real bug found switching to kiste: a .env
+        that still has OPENAI_API_KEY (kept from the OpenAI path) alongside
+        a newly-added KISTE_API_TOKEN sent the OpenAI key to kiste's
+        base_url as a bearer token -- kiste's own auth layer correctly
+        rejected it with 401. KISTE_API_TOKEN must win whenever both are
+        present, since it's the more specific override."""
+        mock_openai_cls.return_value.chat.completions.create.return_value = _response([], content="give up")
+        with patch.dict(
+            os.environ, {"OPENAI_API_KEY": "sk-openai-fake", "KISTE_API_TOKEN": "kiste-fake-for-test"}, clear=True
+        ):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+        self.assertEqual(result.error, "")
+        mock_openai_cls.assert_called_once_with(
+            api_key="kiste-fake-for-test", base_url=None, timeout=_REQUEST_TIMEOUT_SECONDS
+        )
+
+    @patch("openai.OpenAI")
+    @patch("repair_tool.agent.AGENT_BASE_URL", "https://kiste.informatik.tu-chemnitz.de/v1")
+    def test_base_url_override_is_passed_to_the_client(self, mock_openai_cls, _mock_venv, _mock_workspace):
+        mock_openai_cls.return_value.chat.completions.create.return_value = _response([], content="give up")
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+        self.assertEqual(result.error, "")
+        mock_openai_cls.assert_called_once_with(
+            api_key="sk-fake-for-test", base_url="https://kiste.informatik.tu-chemnitz.de/v1",
+            timeout=_REQUEST_TIMEOUT_SECONDS,
+        )
+
+    @patch("repair_tool.agent_tools.apply_module.apply", return_value=(True, "Successfully installed seaborn"))
+    @patch("repair_tool.agent_tools.pypi.latest_version", return_value="0.13.0")
+    @patch("repair_tool.agent_tools.pypi.resolve_package_name", return_value="seaborn")
+    @patch("repair_tool.agent_tools.run_project")
+    @patch("openai.OpenAI")
+    def test_reasoning_model_output_does_not_break_tool_call_parsing(
+        self, mock_openai_cls, mock_run, mock_resolve, mock_latest, mock_apply, _mock_venv, _mock_workspace
+    ):
+        """LLM_SETUP_kiste.md gotcha 1: a reasoning model (Qwen3 'thinking'
+        style) returns a separate reasoning_content field alongside
+        content/tool_calls. The agent must keep extracting tool_calls/
+        content exactly as before, and must not echo reasoning_content
+        back into the conversation it sends the model."""
+        mock_run.side_effect = [
+            RunResult(ok=False, returncode=1, stdout="", stderr="ModuleNotFoundError: No module named 'seaborn'"),
+            RunResult(ok=True, returncode=0, stdout="0.13.0\n", stderr=""),
+        ]
+
+        def _reasoning_response(tool_calls, content=None):
+            resp = _response(tool_calls, content=content)
+            resp.choices[0].message.reasoning_content = "thinking about which tool to call next..."
+            return resp
+
+        mock_openai_cls.return_value.chat.completions.create.side_effect = [
+            _reasoning_response([_tool_call("c1", "run_target", {})], content="let's see what's wrong"),
+            _reasoning_response([_tool_call("c2", "diagnose_error", {"run_result": {
+                "ok": False, "returncode": 1, "stdout": "", "stderr": "ModuleNotFoundError: No module named 'seaborn'"
+            }})]),
+            _reasoning_response([_tool_call("c3", "lookup_package", {"import_name": "seaborn"})]),
+            _reasoning_response([_tool_call("c4", "install_package", {"package": "seaborn"})]),
+            _reasoning_response([_tool_call("c5", "verify", {})]),
+        ]
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+
+        self.assertTrue(result.fixed)
+        tools_called = [step.tool_called for step in result.trace]
+        self.assertEqual(tools_called, ["run_target", "diagnose_error", "lookup_package", "install_package", "verify"])
+
+        sent_messages = mock_openai_cls.return_value.chat.completions.create.call_args_list[-1].kwargs["messages"]
+        assistant_messages = [m for m in sent_messages if m.get("role") == "assistant"]
+        self.assertTrue(assistant_messages)
+        for m in assistant_messages:
+            self.assertNotIn("reasoning_content", m)
+
+    @patch("openai.OpenAI")
     def test_llm_call_failure_degrades_to_error_not_a_crash(self, mock_openai_cls, _mock_venv, _mock_workspace):
         mock_openai_cls.return_value.chat.completions.create.side_effect = RuntimeError("connection reset")
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
             result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
         self.assertFalse(result.fixed)
         self.assertIn("LLM call failed", result.error)
+        self.assertFalse(result.too_large_for_context)
+
+    @patch("openai.OpenAI")
+    def test_context_length_exceeded_is_flagged_distinctly_not_as_a_generic_failure(
+        self, mock_openai_cls, _mock_venv, _mock_workspace
+    ):
+        """PILOT_DECISIONS.md #2: a notebook too large for the model's
+        context window is its own outcome, not a repair failure -- found
+        for real during the evaluation pilot smoke test."""
+        too_large_exc = RuntimeError("Error code: 400 - context length exceeded")
+        too_large_exc.code = "context_length_exceeded"
+        mock_openai_cls.return_value.chat.completions.create.side_effect = too_large_exc
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+        self.assertFalse(result.fixed)
+        self.assertTrue(result.too_large_for_context)
+
+    @patch("openai.OpenAI")
+    def test_a_different_bad_request_error_is_not_mistaken_for_context_length(
+        self, mock_openai_cls, _mock_venv, _mock_workspace
+    ):
+        other_exc = RuntimeError("Error code: 400 - invalid request")
+        other_exc.code = "invalid_request_error"
+        mock_openai_cls.return_value.chat.completions.create.side_effect = other_exc
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+        self.assertFalse(result.too_large_for_context)
+
+    @patch("openai.OpenAI")
+    def test_quota_exhausted_is_flagged_distinctly_not_as_a_generic_failure(
+        self, mock_openai_cls, _mock_venv, _mock_workspace
+    ):
+        """Found for real running the pilot smoke test: the API key ran out
+        of credits mid-run (OpenAI's 429 'insufficient_quota' error),
+        degrading 37 notebooks to a generic failure that would have
+        silently counted against effectiveness -- same treatment as
+        too_large_for_context, for the same reason."""
+        quota_exc = RuntimeError(
+            "Error code: 429 - {'error': {'message': 'You have no credits remaining.', "
+            "'type': 'insufficient_quota', 'param': None, 'code': 'credit_balance_exhausted'}}"
+        )
+        quota_exc.type = "insufficient_quota"
+        quota_exc.code = "credit_balance_exhausted"
+        mock_openai_cls.return_value.chat.completions.create.side_effect = quota_exc
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+        self.assertFalse(result.fixed)
+        self.assertTrue(result.quota_exhausted)
+        self.assertFalse(result.too_large_for_context)
+
+    @patch("openai.OpenAI")
+    def test_a_different_error_type_is_not_mistaken_for_quota_exhaustion(
+        self, mock_openai_cls, _mock_venv, _mock_workspace
+    ):
+        other_exc = RuntimeError("Error code: 400 - context length exceeded")
+        other_exc.type = "invalid_request_error"
+        other_exc.code = "context_length_exceeded"
+        mock_openai_cls.return_value.chat.completions.create.side_effect = other_exc
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+        self.assertFalse(result.quota_exhausted)
 
 
 class TestAgentRepairEnvironmentModes(unittest.TestCase):
@@ -264,7 +431,7 @@ class TestAgentRepairEnvironmentModes(unittest.TestCase):
         )
         with patch("repair_tool.agent_tools.run_project") as mock_run:
             mock_run.return_value = RunResult(ok=True, returncode=0, stdout="ok\n", stderr="")
-            with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
                 result = agent_repair(
                     "some_file.py",
                     python_exe="/shared/repo/venv/python",
@@ -294,7 +461,7 @@ class TestAgentRepairEnvironmentModes(unittest.TestCase):
         )
         with patch("repair_tool.agent_tools.run_project") as mock_run:
             mock_run.return_value = RunResult(ok=True, returncode=0, stdout="ok\n", stderr="")
-            with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
                 result = agent_repair("x.py", fresh=True)
 
         self.assertTrue(result.fixed)
@@ -307,6 +474,7 @@ class TestAgentRepairEnvironmentModes(unittest.TestCase):
     @patch("repair_tool.agent.get_workspace_copy", return_value=os.path.join(EXAMPLES, "01_missing_package.py"))
     @patch("repair_tool.agent.get_venv_python", return_value="/fake/python")
     @patch("openai.OpenAI")
+    @patch("repair_tool.agent.AGENT_BASE_URL", None)
     def test_openai_client_is_given_a_bounded_timeout(self, mock_openai_cls, _mock_venv, _mock_workspace):
         """Regression test for a real bug found running the evaluation
         pilot: with no client-side timeout, a slow/stuck OpenAI response
@@ -316,10 +484,172 @@ class TestAgentRepairEnvironmentModes(unittest.TestCase):
         'LLM call failed' error on that one step instead.
         """
         mock_openai_cls.return_value.chat.completions.create.return_value = _response([], content="stop")
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
             agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
 
-        mock_openai_cls.assert_called_once_with(api_key="sk-fake-for-test", timeout=_REQUEST_TIMEOUT_SECONDS)
+        mock_openai_cls.assert_called_once_with(
+            api_key="sk-fake-for-test", base_url=None, timeout=_REQUEST_TIMEOUT_SECONDS
+        )
+
+
+@patch("repair_tool.agent.get_workspace_copy", return_value=os.path.join(EXAMPLES, "01_missing_package.py"))
+@patch("repair_tool.agent.get_venv_python", return_value="/fake/python")
+class TestAgentStoppingBehavior(unittest.TestCase):
+    """TASK_agent_stopping.md: the harness enforces termination itself
+    instead of trusting the model's own judgement -- found necessary
+    running kiste's Qwen3.6-35B, which (unlike gpt-4o) doesn't recognise
+    when it's stuck and burns the full MAX_STEPS budget re-trying."""
+
+    @patch("repair_tool.agent_tools.run_project")
+    @patch("openai.OpenAI")
+    def test_no_progress_stop_fires_before_max_steps_on_a_stuck_notebook(
+        self, mock_openai_cls, mock_run, _mock_venv, _mock_workspace
+    ):
+        """The same error signature (ModuleNotFoundError / seaborn) on every
+        run_target call -- a model that just keeps re-checking without
+        trying anything new must be stopped well before the 30-step cap."""
+        same_failure = RunResult(ok=False, returncode=1, stdout="", stderr="ModuleNotFoundError: No module named 'seaborn'")
+        mock_run.side_effect = [same_failure] * 10
+        mock_openai_cls.return_value.chat.completions.create.side_effect = [
+            _response([_tool_call(f"c{i}", "run_target", {})]) for i in range(10)
+        ]
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"), max_steps=30, no_progress_limit=3)
+
+        self.assertFalse(result.fixed)
+        self.assertEqual(result.stop_reason, "no_progress")
+        self.assertEqual(len(result.trace), 4, "1 baseline observation + 3 consecutive unchanged ones should stop it")
+        self.assertLess(len(result.trace), 30)
+
+    @patch("repair_tool.agent_tools.run_project")
+    @patch("openai.OpenAI")
+    def test_a_changing_error_signature_resets_the_counter_and_keeps_going(
+        self, mock_openai_cls, mock_run, _mock_venv, _mock_workspace
+    ):
+        """A genuinely multi-layer fix -- each run_target reveals a
+        *different* missing module -- must NOT trip the no-progress stop,
+        since each change is real progress (a previous layer was cleared)."""
+        mock_run.side_effect = [
+            RunResult(ok=False, returncode=1, stdout="", stderr=f"ModuleNotFoundError: No module named 'pkg{i}'")
+            for i in range(5)
+        ]
+        mock_openai_cls.return_value.chat.completions.create.side_effect = [
+            _response([_tool_call(f"c{i}", "run_target", {})]) for i in range(5)
+        ]
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"), max_steps=5, no_progress_limit=3)
+
+        self.assertFalse(result.fixed)
+        self.assertEqual(result.stop_reason, "step_cap")
+        self.assertEqual(len(result.trace), 5, "should run the full budget since no-progress never actually fires")
+
+    @patch("repair_tool.agent_tools.apply_module.apply", return_value=(False, "still fails"))
+    @patch("openai.OpenAI")
+    def test_a_repeated_identical_fix_action_is_not_re_executed(self, mock_openai_cls, mock_apply, _mock_venv, _mock_workspace):
+        """Looping models re-issue identical calls repeatedly -- the harness
+        must not re-run the same install_package call over and over, and
+        must count the repeat itself as no-progress."""
+        mock_openai_cls.return_value.chat.completions.create.side_effect = [
+            _response([_tool_call(f"c{i}", "install_package", {"package": "seaborn"})]) for i in range(4)
+        ]
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"), max_steps=30, no_progress_limit=3)
+
+        self.assertFalse(result.fixed)
+        self.assertEqual(result.stop_reason, "no_progress")
+        self.assertEqual(mock_apply.call_count, 1, "the real install should only ever be executed once")
+        self.assertEqual(len(result.trace), 4)
+        self.assertTrue(result.trace[1].tool_result.get("already_attempted"))
+        self.assertTrue(result.trace[2].tool_result.get("already_attempted"))
+        self.assertTrue(result.trace[3].tool_result.get("already_attempted"))
+
+    @patch("openai.OpenAI")
+    def test_report_unfixable_produces_a_clean_model_gave_up_outcome(self, mock_openai_cls, _mock_venv, _mock_workspace):
+        mock_openai_cls.return_value.chat.completions.create.return_value = _response(
+            [_tool_call("c1", "report_unfixable", {"reason": "needs a system-level compiler, out of scope"})]
+        )
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+
+        self.assertFalse(result.fixed)
+        self.assertEqual(result.stop_reason, "model_gave_up")
+        self.assertEqual(result.error, "")
+        self.assertEqual(len(result.trace), 1)
+        self.assertEqual(result.trace[0].tool_called, "report_unfixable")
+        self.assertEqual(result.trace[0].tool_result["reason"], "needs a system-level compiler, out of scope")
+
+    @patch("repair_tool.agent_tools.run_project")
+    @patch("openai.OpenAI")
+    def test_old_tool_results_are_compacted_in_the_outgoing_request(
+        self, mock_openai_cls, mock_run, _mock_venv, _mock_workspace
+    ):
+        """TASK_agent_stopping.md #5: the full message history (not the
+        notebook source, which is never resent) grows by two messages every
+        step and is resent whole on every call with no server-side state --
+        the real contributor to latency/context pressure on a long run."""
+        mock_run.side_effect = [
+            RunResult(ok=False, returncode=1, stdout="", stderr=f"ModuleNotFoundError: No module named 'pkg{i}'")
+            for i in range(6)
+        ]
+        mock_openai_cls.return_value.chat.completions.create.side_effect = [
+            _response([_tool_call(f"c{i}", "run_target", {})]) for i in range(6)
+        ]
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"), max_steps=6, no_progress_limit=10)
+
+        self.assertEqual(len(result.trace), 6)  # the full trace is never compacted
+
+        last_call_messages = mock_openai_cls.return_value.chat.completions.create.call_args_list[-1].kwargs["messages"]
+        tool_messages = [m for m in last_call_messages if m.get("role") == "tool"]
+        self.assertEqual(len(tool_messages), 5)  # 5 prior steps by the time of the 6th call
+        compacted = [m for m in tool_messages if "omitted" in m["content"]]
+        verbatim = [m for m in tool_messages if "omitted" not in m["content"]]
+        self.assertEqual(len(compacted), 1)
+        self.assertEqual(len(verbatim), 4)
+
+
+class TestCompactedMessagesForRequest(unittest.TestCase):
+    def test_short_history_is_left_untouched(self):
+        from repair_tool.agent import _compacted_messages_for_request
+
+        messages = [{"role": "system", "content": "s"}, {"role": "user", "content": "u"}] + [
+            {"role": "tool", "tool_call_id": f"c{i}", "content": f"result {i}"} for i in range(3)
+        ]
+        self.assertEqual(_compacted_messages_for_request(messages), messages)
+
+    def test_older_tool_results_beyond_the_window_are_replaced(self):
+        from repair_tool.agent import _compacted_messages_for_request
+
+        messages = [{"role": "tool", "tool_call_id": f"c{i}", "content": f"result {i}"} for i in range(6)]
+        compacted = _compacted_messages_for_request(messages)
+        self.assertEqual(len(compacted), 6)
+        self.assertIn("omitted", compacted[0]["content"])
+        self.assertIn("omitted", compacted[1]["content"])
+        for i in range(2, 6):
+            self.assertEqual(compacted[i]["content"], f"result {i}")
+
+    def test_non_tool_messages_are_never_touched(self):
+        from repair_tool.agent import _compacted_messages_for_request
+
+        messages = [{"role": "system", "content": "s"}, {"role": "user", "content": "u"}] + [
+            {"role": "tool", "tool_call_id": f"c{i}", "content": f"result {i}"} for i in range(6)
+        ]
+        compacted = _compacted_messages_for_request(messages)
+        self.assertEqual(compacted[0], {"role": "system", "content": "s"})
+        self.assertEqual(compacted[1], {"role": "user", "content": "u"})
+
+    def test_original_messages_list_is_never_mutated(self):
+        from repair_tool.agent import _compacted_messages_for_request
+
+        messages = [{"role": "tool", "tool_call_id": f"c{i}", "content": f"result {i}"} for i in range(6)]
+        original_first_content = messages[0]["content"]
+        _compacted_messages_for_request(messages)
+        self.assertEqual(messages[0]["content"], original_first_content)
 
 
 @unittest.skipIf(SKIP_NETWORK, "SKIP_NETWORK_TESTS set")

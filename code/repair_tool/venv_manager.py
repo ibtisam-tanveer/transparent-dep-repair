@@ -50,8 +50,42 @@ def get_workspace_copy(target_path: str) -> str:
     return copy_path
 
 
+KERNEL_PIN_ENV = "REPAIR_TOOL_IPYKERNEL_SPEC"
+
+
+def _version_tuple(text: str) -> tuple[int, ...]:
+    parts = []
+    for piece in text.strip().split("."):
+        digits = "".join(ch for ch in piece if ch.isdigit())
+        if not digits:
+            break
+        parts.append(int(digits))
+    return tuple(parts)
+
+
+def _kernel_too_new(python_exe: str, pin: str) -> bool:
+    """True if the environment's ipykernel is NEWER than the pinned
+    `ipykernel==X` version (older ones are left alone)."""
+    if "==" not in pin:
+        return False
+    wanted = _version_tuple(pin.split("==", 1)[1])
+    try:
+        out = subprocess.run([python_exe, "-c", "import ipykernel;print(ipykernel.__version__)"],
+                             capture_output=True, text=True, timeout=30).stdout
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    return bool(wanted) and _version_tuple(out) > wanted
+
+
 def ensure_ipykernel(python_exe: str) -> tuple[bool, str]:
     """Make sure `python_exe`'s environment can launch a Jupyter kernel.
+
+    `REPAIR_TOOL_IPYKERNEL_SPEC` (set only inside the linux/amd64 container on
+    an Apple-Silicon host) pins the kernel package: measured there, ipykernel
+    >= 6.29 starts but NEVER answers its first message under Rosetta (while
+    6.16.2 is ready in under a second), so every notebook would hang until the
+    startup timeout. A newer ipykernel already in the environment is replaced
+    by the pin; an older one is left alone. Unset on a native host.
 
     Checks first (cheap) so a repeat call on an already-equipped venv is a
     no-op; installs otherwise. Never raises: any failure comes back as
@@ -66,12 +100,13 @@ def ensure_ipykernel(python_exe: str) -> tuple[bool, str]:
         )
     except (subprocess.TimeoutExpired, OSError) as exc:
         return False, f"could not check for ipykernel: {exc}"
-    if check.returncode == 0:
+    pin = os.environ.get(KERNEL_PIN_ENV, "").strip()
+    if check.returncode == 0 and not (pin and _kernel_too_new(python_exe, pin)):
         return True, "ipykernel already present"
 
     try:
         completed = subprocess.run(
-            [python_exe, "-m", "pip", "install", "ipykernel"],
+            [python_exe, "-m", "pip", "install", pin or "ipykernel"],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -85,12 +120,31 @@ def ensure_ipykernel(python_exe: str) -> tuple[bool, str]:
     return completed.returncode == 0, log
 
 
+def ensure_ipython(python_exe: str) -> tuple[bool, str]:
+    """Make sure `python_exe`'s environment has IPython (all the in-process
+    notebook executor needs -- no kernel, no ZeroMQ). Never raises."""
+    try:
+        check = subprocess.run([python_exe, "-c", "import IPython"], capture_output=True, text=True, timeout=30)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return False, f"could not check for IPython: {exc}"
+    if check.returncode == 0:
+        return True, "IPython already present"
+    try:
+        completed = subprocess.run(
+            [python_exe, "-m", "pip", "install", "ipython"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=_IPYKERNEL_INSTALL_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"IPython install timed out after {_IPYKERNEL_INSTALL_TIMEOUT}s"
+    return completed.returncode == 0, completed.stdout + completed.stderr
+
+
 def venv_dir_for(target_path: str) -> str:
     """Public read-only access to the venv directory `get_venv_python`
     would (re)use for `target_path`, without creating anything. Lets a
     caller that already knows a venv exists (e.g. agent_repo.py, right
     after get_venv_python(repo_path)) locate its workspace/ subtree
-    directly -- see get_repo_file_workspace_copy.
+    directly -- see get_persistent_repo_copy.
     """
     return _venv_dir_for(target_path)
 
@@ -120,19 +174,31 @@ def get_fresh_workspace_copy(target_path: str, tmp_root: str) -> str:
     return copy_path
 
 
-def get_repo_file_workspace_copy(venv_dir: str, repo_path: str, rel_file_path: str) -> str:
-    """Like get_workspace_copy, but scoped to a whole repo's ONE shared
-    venv directory (`venv_dir`, e.g. from venv_dir_for(repo_path) or a
-    fresh tmp_root) instead of giving every file in the repo its own venv
-    -- every file's working copy lives under the same venv's workspace/
-    subtree, preserving the file's path relative to the repo so files with
-    the same basename in different subdirectories don't collide.
+def get_fresh_repo_copy(repo_path: str, tmp_root: str) -> str:
+    """TASK_fix_repo_execution.md: a whole-repo copy under a caller-owned
+    `tmp_root` (see get_fresh_venv_python) -- always a fresh copy of the
+    real, unmodified repo. Replaces per-file copying (get_repo_file_workspace_copy):
+    a notebook/script that does a local import (`import helper`) or reads
+    a relative path needs its sibling files physically present, exactly as
+    a real user running it in place would have. One shared venv (environment
+    isolation) still covers the whole repo; this isolates nothing extra at
+    the filesystem level -- matching how established reproducibility studies
+    run notebooks in place within a cloned repo (Pimentel et al., MSR 2019;
+    the GigaScience study this thesis's dataset comes from).
     """
-    copy_path = os.path.join(venv_dir, "workspace", rel_file_path)
-    os.makedirs(os.path.dirname(copy_path), exist_ok=True)
-    if not os.path.isfile(copy_path):
-        shutil.copyfile(os.path.join(repo_path, rel_file_path), copy_path)
-    return copy_path
+    workspace_dir = os.path.join(tmp_root, "workspace")
+    shutil.copytree(repo_path, workspace_dir)
+    return workspace_dir
+
+
+def get_persistent_repo_copy(repo_path: str, venv_dir: str) -> str:
+    """Like get_fresh_repo_copy, but under the persistent per-repo venv_dir
+    (see venv_dir_for) -- created once, reused on later calls, matching
+    get_workspace_copy's persistent-cache contract."""
+    workspace_dir = os.path.join(venv_dir, "workspace")
+    if not os.path.isdir(workspace_dir):
+        shutil.copytree(repo_path, workspace_dir)
+    return workspace_dir
 
 
 def _venv_dir_for(target_path: str) -> str:

@@ -1,0 +1,256 @@
+{
+  "seed": 42,
+  "quotas": {
+    "A": 18,
+    "C": 4,
+    "D": 4
+  },
+  "max_labelled_per_repo": 60,
+  "repositories_excluded_as_too_large": 10,
+  "pools": {
+    "A": {
+      "tier": "confirmed",
+      "notebooks": 3406,
+      "repositories": 784
+    },
+    "C": {
+      "tier": "candidate",
+      "notebooks": 60,
+      "repositories": 35
+    },
+    "D": {
+      "tier": "candidate",
+      "notebooks": 69,
+      "repositories": 25
+    }
+  },
+  "verified_against_current_tree": true,
+  "skipped_repositories": {
+    "repository_unreachable": 0,
+    "labelled_notebooks_no_longer_exist": 2
+  },
+  "skipped_repository_names": {
+    "repository_unreachable": [],
+    "labelled_notebooks_no_longer_exist": [
+      "dswah/pyGAM",
+      "woutdenolf/spectrocrunch"
+    ]
+  },
+  "selected": 26,
+  "selected_by_category": {
+    "A": 18,
+    "C": 4,
+    "D": 4
+  },
+  "selected_by_tier": {
+    "confirmed": 18,
+    "candidate": 8
+  },
+  "selected_by_python_version": {
+    "3.8.5": 4,
+    "3.6.13": 1,
+    "3.7.5": 1,
+    "3.6.6": 1,
+    "3.7.4": 1,
+    "3.6.9": 1,
+    "3.7.10": 1,
+    "3.7.1": 2,
+    "3.7.3": 3,
+    "3.6.4": 1,
+    "3.7.6": 1,
+    "3.8.3": 1,
+    "3.8.13": 2,
+    "3.6.11": 1,
+    "3.8.2": 1,
+    "3.6.12": 1,
+    "3.9.5": 1,
+    "3.9.13": 1,
+    "3.7.7": 1
+  },
+  "distinct_repositories": 26,
+  "notebooks": [
+    {
+      "repository": "ssehztirom/interpretable-generative-deep-learning",
+      "notebook_path": "PBMCscVI.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.8.5"
+    },
+    {
+      "repository": "KULL-Centre/ProteinUnfolding2D",
+      "notebook_path": "examples/ACBP_unfolding2d.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.6.13"
+    },
+    {
+      "repository": "Reosu/modulome_mtb",
+      "notebook_path": "notebooks/03_ica_dimensionality.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.7.5"
+    },
+    {
+      "repository": "dekkerlab/matrix_paper",
+      "notebook_path": "notebooks/plot_heatmap_sections_HFF_matrix_fig.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.6.6"
+    },
+    {
+      "repository": "TimoHenry/MitochondrialRNAgranules",
+      "notebook_path": "STORM_2C_Plots.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.7.4"
+    },
+    {
+      "repository": "Gardner-BinfLab/SoDoPE_paper_2020",
+      "notebook_path": "protr_R_Package_analysis/E_coli/feature_analysis_Ecoli.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.6.9"
+    },
+    {
+      "repository": "volkamerlab/TeachOpenCADD",
+      "notebook_path": "teachopencadd/talktorials/T014_binding_site_detection/talktorial.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.7.10"
+    },
+    {
+      "repository": "atudell/Color-Cluster-Kit",
+      "notebook_path": "Data Collector (Sandblossom).ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.7.1"
+    },
+    {
+      "repository": "jessegmeyerlab/MIMaL",
+      "notebook_path": "python/correlation.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.8.5"
+    },
+    {
+      "repository": "blab/h5n1-cambodia",
+      "notebook_path": "figures/figure-3-nucleotide-diversity.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.7.3"
+    },
+    {
+      "repository": "briney/grp_paper",
+      "notebook_path": "data_processing/02_clonotype-and-sequence-counting.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.6.4"
+    },
+    {
+      "repository": "RafalKucharskiPK/MaaSSim",
+      "notebook_path": "docs/Experiments/E_01_spatial_patterns.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.7.6"
+    },
+    {
+      "repository": "symbiologist/dualgenomewide",
+      "notebook_path": "analysis/perturbseq/scripts/scvelo.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.8.3"
+    },
+    {
+      "repository": "csabaiBio/RBD-AlphaFold2-structures-and-phenotypic-information",
+      "notebook_path": "SARS-CoV-2-RBD_DMS_Omicron/process_ccs_BA1.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.8.13"
+    },
+    {
+      "repository": "dwslab/jRDF2Vec",
+      "notebook_path": "examples/jupyter_notebook/jRDF2vec-for-oa.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.8.5"
+    },
+    {
+      "repository": "samplchallenges/SAMPL8",
+      "notebook_path": "physical_properties/microstates/make_mol2_sdf_pdb_files.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.6.11"
+    },
+    {
+      "repository": "theislab/singlecell_proteomics",
+      "notebook_path": "TSP_cell_cycle_analysis.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.8.2"
+    },
+    {
+      "repository": "theislab/2022_Bakhti_pancreas_Syt13",
+      "notebook_path": "human_invitro_Veres2019.ipynb",
+      "category": "A",
+      "tier": "confirmed",
+      "python_version": "3.6.12"
+    },
+    {
+      "repository": "basantab/NTF2Analysis",
+      "notebook_path": "GlycineTryp_control_analysis/gly_resc_and_trp_lock_effect.ipynb",
+      "category": "C",
+      "tier": "candidate",
+      "python_version": "3.7.1"
+    },
+    {
+      "repository": "MLWave/kepler-mapper",
+      "notebook_path": "examples/breast-cancer/breast-cancer.ipynb",
+      "category": "C",
+      "tier": "candidate",
+      "python_version": "3.9.5"
+    },
+    {
+      "repository": "spacetx/starfish",
+      "notebook_path": "notebooks/SeqFISH.ipynb",
+      "category": "C",
+      "tier": "candidate",
+      "python_version": "3.9.13"
+    },
+    {
+      "repository": "pstjohn/bde_model_methods",
+      "notebook_path": "evaluate_models.ipynb",
+      "category": "C",
+      "tier": "candidate",
+      "python_version": "3.7.3"
+    },
+    {
+      "repository": "AgileBioFoundry/Rt_IFO0880",
+      "notebook_path": "Notebooks/0.Annotation_and_Draft_reconstruction/Annotation_Transporters_TCDB.ipynb",
+      "category": "D",
+      "tier": "candidate",
+      "python_version": "3.8.5"
+    },
+    {
+      "repository": "jrgreen7/SYSC4906",
+      "notebook_path": "F2020/Assignments/Assignment2/Assignment2-DeepPurpose-DTI-Prediction.ipynb",
+      "category": "D",
+      "tier": "candidate",
+      "python_version": "3.7.7"
+    },
+    {
+      "repository": "open2c/pairtools",
+      "notebook_path": "doc/examples/benchmark/benchmark.ipynb",
+      "category": "D",
+      "tier": "candidate",
+      "python_version": "3.8.13"
+    },
+    {
+      "repository": "NCBI-Hackathons/TheHumanPangenome",
+      "notebook_path": "MHC/e2e_notebooks/02_run_assembler.ipynb",
+      "category": "D",
+      "tier": "candidate",
+      "python_version": "3.7.3"
+    }
+  ],
+  "source_csv": "dataset/failures_2023.csv"
+}

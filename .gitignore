@@ -17,3 +17,6 @@ dataset/raw/
 build/
 dist/
 evaluation/results/
+
+# local interpreter-provisioning tools (micromamba), not part of the repo
+.tools/

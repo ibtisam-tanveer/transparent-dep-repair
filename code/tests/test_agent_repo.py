@@ -127,7 +127,7 @@ class TestAgentRepairRepoOffline(unittest.TestCase):
             _response([_tool_call("c8", "verify", {})]),
         ]
 
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
             result = agent_repair_repo(FIXTURE_REPO)
 
         self.assertIsInstance(result, RepoAgentResult)
@@ -202,20 +202,46 @@ class TestAgentRepairRepoOffline(unittest.TestCase):
         self.assertFalse(result.env_setup_ok)
         self.assertEqual(result.files, [])
 
+    @patch("repair_tool.agent_repo.get_fresh_repo_copy", return_value="/tmp/freshrepo/workspace")
     @patch("repair_tool.agent_repo.get_fresh_venv_python", return_value="/tmp/freshrepo/bin/python")
     @patch("repair_tool.agent_repo.tempfile.mkdtemp", return_value="/tmp/freshrepo")
     @patch("repair_tool.agent_repo.shutil.rmtree")
     @patch("repair_tool.agent_repo.get_venv_python")
     @patch("repair_tool.agent_repo.run_project", return_value=_ok())
     def test_fresh_uses_a_throwaway_venv_for_the_whole_repo_not_the_cache(
-        self, mock_repo_run, mock_get_venv, mock_rmtree, mock_mkdtemp, mock_fresh_venv
+        self, mock_repo_run, mock_get_venv, mock_rmtree, mock_mkdtemp, mock_fresh_venv, mock_fresh_repo_copy
     ):
         result = agent_repair_repo(FIXTURE_REPO, fresh=True)
 
         mock_get_venv.assert_not_called()
         mock_fresh_venv.assert_called_once_with("/tmp/freshrepo")
+        mock_fresh_repo_copy.assert_called_once_with(FIXTURE_REPO, "/tmp/freshrepo")
         mock_rmtree.assert_called_once_with("/tmp/freshrepo", ignore_errors=True)
         self.assertEqual(result.summary["total"], 4)
+
+    @patch("repair_tool.agent_repo.repo_module.repo_last_commit_date", return_value="2019-05-01")
+    @patch("repair_tool.agent_repo.get_fresh_repo_copy", return_value="/tmp/freshrepo/workspace")
+    @patch("repair_tool.agent_repo.get_fresh_venv_python", return_value="/tmp/freshrepo/bin/python")
+    @patch("repair_tool.agent_repo.tempfile.mkdtemp", return_value="/tmp/freshrepo")
+    @patch("repair_tool.agent_repo.shutil.rmtree")
+    @patch("repair_tool.agent_repo.get_venv_python")
+    @patch("repair_tool.agent_repo.run_project", return_value=_fail("ModuleNotFoundError: No module named 'x'"))
+    @patch("repair_tool.agent_repo.agent_repair")
+    def test_era_cutoff_date_is_computed_once_and_passed_to_every_agent_repair_call(
+        self, mock_agent_repair, mock_repo_run, mock_get_venv, mock_rmtree, mock_mkdtemp, mock_fresh_venv,
+        mock_fresh_repo_copy, mock_era_date,
+    ):
+        """TASK_version_decay_diagnosis.md Part B: the repo's last-commit
+        date is looked up once (on the whole-repo copy) and threaded into
+        every file's agent_repair call."""
+        mock_agent_repair.return_value = AgentResult(target="x", fixed=True, trace=[])
+
+        agent_repair_repo(FIXTURE_REPO, fresh=True)
+
+        mock_era_date.assert_called_once_with("/tmp/freshrepo/workspace")
+        self.assertTrue(mock_agent_repair.called)
+        for call in mock_agent_repair.call_args_list:
+            self.assertEqual(call.kwargs["era_cutoff_date"], "2019-05-01")
 
 
 @unittest.skipIf(SKIP_NETWORK, "SKIP_NETWORK_TESTS set")

@@ -24,13 +24,18 @@ except ImportError:
     pass
 
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+# LLM_SETUP_kiste.md: same base_url override as agent.py, for consistency --
+# this module isn't on the evaluation harness's call path (agent.py is), but
+# "the tool's LLM backend" should still mean one answer, not two.
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL") or None
 # Fixed, not user-configurable: temperature=0 is part of the reproducibility
 # contract (PHASE5_TASK.md), so there is deliberately no env var for it.
 TEMPERATURE = 0
 
 _API_KEY_MISSING_MESSAGE = (
-    "OPENAI_API_KEY is not set. Set it in your environment or in a local "
-    ".env file (see README.md) to enable LLM-based repair."
+    "Neither OPENAI_API_KEY nor KISTE_API_TOKEN is set. Set one in your "
+    "environment or in a local .env file (see README.md) to enable "
+    "LLM-based repair."
 )
 
 _SYSTEM_PROMPT = """You are a Python dependency-repair assistant. A script fails \
@@ -88,6 +93,23 @@ def _strip_code_fences(text: str) -> str:
     return match.group(1) if match else text
 
 
+def _extract_json_object(text: str) -> str:
+    """LLM_SETUP_kiste.md gotcha 2: a reasoning model (or a server that
+    doesn't honour response_format=json_object) can prepend a thinking
+    preamble before the actual JSON answer. If the text isn't already a
+    bare JSON object after fence-stripping, take the first '{' through the
+    last '}' instead of giving up -- still just a best-effort extraction,
+    not a guarantee; _parse_response's own try/except is what actually
+    keeps this never-raising."""
+    text = _strip_code_fences(text).strip()
+    if text.startswith("{"):
+        return text
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end > start:
+        return text[start : end + 1]
+    return text
+
+
 def _parse_candidate(raw: object) -> FixCandidate | None:
     if not isinstance(raw, dict):
         return None
@@ -103,7 +125,7 @@ def _parse_candidate(raw: object) -> FixCandidate | None:
 
 def _parse_response(text: str) -> LLMFixSuggestion:
     try:
-        data = json.loads(_strip_code_fences(text).strip())
+        data = json.loads(_extract_json_object(text))
     except (json.JSONDecodeError, AttributeError, TypeError):
         return LLMFixSuggestion(
             error=f"LLM response was not valid JSON: {text[:200]!r}", model=OPENAI_MODEL, temperature=TEMPERATURE
@@ -134,7 +156,10 @@ def _build_user_prompt(diagnosis: Diagnosis, code: str, error_text: str) -> str:
 
 def request_fix(diagnosis: Diagnosis, code: str, error_text: str) -> LLMFixSuggestion:
     """Ask the model for both candidates in one call. Never raises."""
-    api_key = os.environ.get("OPENAI_API_KEY")
+    # LLM_SETUP_kiste.md: KISTE_API_TOKEN checked first -- see agent.py's
+    # matching comment for the real bug this ordering fixes (a .env with
+    # both vars set sent the wrong key to the wrong backend).
+    api_key = os.environ.get("KISTE_API_TOKEN") or os.environ.get("OPENAI_API_KEY")
     if not api_key:
         return LLMFixSuggestion(error=_API_KEY_MISSING_MESSAGE, model=OPENAI_MODEL, temperature=TEMPERATURE)
 
@@ -145,25 +170,34 @@ def request_fix(diagnosis: Diagnosis, code: str, error_text: str) -> LLMFixSugge
             error="the 'openai' package is not installed", model=OPENAI_MODEL, temperature=TEMPERATURE
         )
 
-    try:
-        client = openai.OpenAI(api_key=api_key)
-        response = client.chat.completions.create(
-            model=OPENAI_MODEL,
-            temperature=TEMPERATURE,
-            # Constrains the API to only emit syntactically valid JSON --
-            # without this, the model can (and does, in practice) forget to
-            # escape a literal `"` inside a "find"/"replace" string (e.g.
-            # code containing {"a": 3}), producing JSON that looks complete
-            # but fails to parse. json_object mode makes that a server-side
-            # guarantee instead of something the prompt just asks nicely for.
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": _build_user_prompt(diagnosis, code, error_text)},
-            ],
-        )
-        content = response.choices[0].message.content or ""
-    except Exception as exc:  # noqa: BLE001 - any SDK/network failure -> "no fix", never a crash
-        return LLMFixSuggestion(error=f"LLM call failed: {exc}", model=OPENAI_MODEL, temperature=TEMPERATURE)
+    client = openai.OpenAI(api_key=api_key, base_url=OPENAI_BASE_URL)
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "user", "content": _build_user_prompt(diagnosis, code, error_text)},
+    ]
 
+    try:
+        # Constrains the API to only emit syntactically valid JSON --
+        # without this, the model can (and does, in practice) forget to
+        # escape a literal `"` inside a "find"/"replace" string (e.g.
+        # code containing {"a": 3}), producing JSON that looks complete
+        # but fails to parse. json_object mode makes that a server-side
+        # guarantee instead of something the prompt just asks nicely for.
+        response = client.chat.completions.create(
+            model=OPENAI_MODEL, temperature=TEMPERATURE,
+            response_format={"type": "json_object"}, messages=messages,
+        )
+    except Exception:  # noqa: BLE001 - LLM_SETUP_kiste.md gotcha 2: this self-hosted
+        # server may not support response_format at all -- retry once
+        # without it, relying on _extract_json_object's best-effort parsing
+        # instead of a server-side guarantee. A second, genuine failure
+        # (network/auth/etc.) is reported below, not swallowed.
+        try:
+            response = client.chat.completions.create(
+                model=OPENAI_MODEL, temperature=TEMPERATURE, messages=messages,
+            )
+        except Exception as exc:  # noqa: BLE001 - any SDK/network failure -> "no fix", never a crash
+            return LLMFixSuggestion(error=f"LLM call failed: {exc}", model=OPENAI_MODEL, temperature=TEMPERATURE)
+
+    content = response.choices[0].message.content or ""
     return _parse_response(content)

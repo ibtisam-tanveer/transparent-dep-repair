@@ -137,6 +137,75 @@ class TestFindDependencyFiles(unittest.TestCase):
     def test_finds_requirements_txt(self):
         self.assertEqual(find_dependency_files(SAMPLE_REPO_WITH_DEPS), ["requirements.txt"])
 
+    def test_finds_a_dependency_file_living_in_a_subdirectory(self):
+        """TASK_version_decay_diagnosis.md Part B: a Binder-convention
+        binder/environment.yml (not at the repo root) used to be invisible
+        to this tool entirely -- exactly "declared dependencies ignored"."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(tmpdir, "binder"))
+            with open(os.path.join(tmpdir, "binder", "environment.yml"), "w") as f:
+                f.write("dependencies: []\n")
+            found = find_dependency_files(tmpdir)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        self.assertEqual(found, [os.path.join("binder", "environment.yml")])
+
+    def test_a_root_level_file_is_preferred_over_a_nested_one_with_the_same_name(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(tmpdir, "sub"))
+            with open(os.path.join(tmpdir, "requirements.txt"), "w") as f:
+                f.write("root\n")
+            with open(os.path.join(tmpdir, "sub", "requirements.txt"), "w") as f:
+                f.write("nested\n")
+            found = find_dependency_files(tmpdir)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        self.assertEqual(found, ["requirements.txt"])
+
+    def test_does_not_descend_into_excluded_or_venv_directories(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(tmpdir, ".venv"))
+            with open(os.path.join(tmpdir, ".venv", "pyvenv.cfg"), "w") as f:
+                f.write("home = /usr/bin\n")
+            with open(os.path.join(tmpdir, ".venv", "requirements.txt"), "w") as f:
+                f.write("vendored, must not be found\n")
+            found = find_dependency_files(tmpdir)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        self.assertEqual(found, [])
+
+
+class TestRepoLastCommitDate(unittest.TestCase):
+    def test_a_real_git_repo_returns_its_head_commit_date(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            subprocess.run(["git", "init", "-q"], cwd=tmpdir, check=True)
+            subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=tmpdir, check=True)
+            subprocess.run(["git", "config", "user.name", "t"], cwd=tmpdir, check=True)
+            with open(os.path.join(tmpdir, "a.py"), "w") as f:
+                f.write("print(1)\n")
+            subprocess.run(["git", "add", "a.py"], cwd=tmpdir, check=True)
+            env = {**os.environ, "GIT_AUTHOR_DATE": "2019-05-01T00:00:00", "GIT_COMMITTER_DATE": "2019-05-01T00:00:00"}
+            subprocess.run(["git", "commit", "-q", "-m", "x"], cwd=tmpdir, check=True, env=env)
+
+            from repair_tool.repo import repo_last_commit_date
+
+            self.assertEqual(repo_last_commit_date(tmpdir), "2019-05-01")
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_not_a_git_repo_returns_none(self):
+        from repair_tool.repo import repo_last_commit_date
+
+        tmpdir = tempfile.mkdtemp()
+        try:
+            self.assertIsNone(repo_last_commit_date(tmpdir))
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
 
 class TestPyprojectDetection(unittest.TestCase):
     def test_tool_config_only_is_not_a_package(self):
@@ -176,10 +245,23 @@ class TestInstallDependenciesOffline(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(used, "")
 
-    def test_unsupported_formats_only_reported_not_attempted(self):
+    def test_pipfile_is_only_reported_never_attempted(self):
         with patch("repair_tool.repo._run_pip_install") as mock_pip:
             ok, log, used = _install_dependencies(
-                "/fake/python", "/fake/repo", ["environment.yml", "Pipfile"], timeout=30
+                "/fake/python", "/fake/repo", ["Pipfile"], timeout=30
+            )
+        mock_pip.assert_not_called()
+        self.assertTrue(ok)
+        self.assertEqual(used, "")
+        self.assertIn("Pipfile", log)
+
+    def test_an_environment_yml_with_no_pip_expressible_entries_is_reported_not_attempted(self):
+        """A conda environment.yml whose every pin is conda-only (e.g. a
+        build string, or a package with no PyPI equivalent at all -- a
+        nonexistent file degrades to the same "nothing found" shape)."""
+        with patch("repair_tool.repo._run_pip_install") as mock_pip:
+            ok, log, used = _install_dependencies(
+                "/fake/python", "/fake/repo", ["environment.yml"], timeout=30
             )
         mock_pip.assert_not_called()
         self.assertTrue(ok)
@@ -187,14 +269,55 @@ class TestInstallDependenciesOffline(unittest.TestCase):
         self.assertIn("environment.yml", log)
 
     @patch("repair_tool.repo._run_pip_install")
+    def test_environment_yml_pip_expressible_entries_are_installed_individually(self, mock_pip):
+        """TASK_version_decay_diagnosis.md Part B: a real environment.yml's
+        pip-expressible pins (conda name=version entries, plus its own
+        `pip:` sub-list) must each be attempted -- one bad, conda-only pin
+        (no real PyPI release matching it) must not block the others."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(tmpdir, "environment.yml"), "w") as f:
+                f.write(
+                    "name: myenv\n"
+                    "dependencies:\n"
+                    "  - python=3.7\n"
+                    "  - numpy=1.17.3\n"
+                    "  - pyferret=7.5.0\n"
+                    "  - pip:\n"
+                    "    - ipywidgets==7.5.1\n"
+                )
+            mock_pip.side_effect = [(True, "numpy ok"), (False, "pyferret: no matching distribution"), (True, "ipywidgets ok")]
+            ok, log, used = _install_dependencies("/fake/python", tmpdir, ["environment.yml"], timeout=30)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+        self.assertTrue(ok)  # at least one spec succeeded
+        self.assertEqual(used, "environment.yml")
+        self.assertEqual(mock_pip.call_count, 3)
+        installed_specs = [call.args[1][0] for call in mock_pip.call_args_list]
+        self.assertEqual(installed_specs, ["numpy==1.17.3", "pyferret==7.5.0", "ipywidgets==7.5.1"])
+
+    @patch("repair_tool.repo._run_pip_install")
     def test_requirements_txt_is_used_when_present(self, mock_pip):
         mock_pip.return_value = (True, "installed")
         ok, log, used = _install_dependencies(
             "/fake/python", "/fake/repo", ["requirements.txt", "setup.py"], timeout=30
         )
-        self.assertEqual(used, "requirements.txt")
-        mock_pip.assert_called_once()
-        self.assertIn("-r", mock_pip.call_args[0][1])
+        self.assertIn("-r", mock_pip.call_args_list[0][0][1])
+
+    @patch("repair_tool.repo._run_pip_install")
+    def test_both_requirements_txt_and_setup_py_are_attempted_not_just_the_first(self, mock_pip):
+        """TASK_version_decay_diagnosis.md Part B: a package-declaring
+        setup.py (installs the repo's own package) and requirements.txt
+        (installs its pinned third-party stack) answer different
+        questions -- both should be attempted, not just the first found."""
+        mock_pip.return_value = (True, "installed")
+        ok, log, used = _install_dependencies(
+            "/fake/python", "/fake/repo", ["requirements.txt", "setup.py"], timeout=30
+        )
+        self.assertTrue(ok)
+        self.assertEqual(used, "requirements.txt, setup.py")
+        self.assertEqual(mock_pip.call_count, 2)
 
     def test_pyproject_without_package_falls_through_to_next_candidate(self):
         tmpdir = tempfile.mkdtemp()
@@ -209,6 +332,65 @@ class TestInstallDependenciesOffline(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         self.assertEqual(used, "requirements.txt")  # skipped the tool-config pyproject.toml
+
+
+class TestEnvironmentYmlPipSpecs(unittest.TestCase):
+    def test_extracts_conda_pins_and_the_pip_sublist(self):
+        from repair_tool.repo import _environment_yml_pip_specs
+
+        tmpdir = tempfile.mkdtemp()
+        try:
+            path = os.path.join(tmpdir, "environment.yml")
+            with open(path, "w") as f:
+                f.write(
+                    "dependencies:\n"
+                    "  - python=3.7\n"
+                    "  - numpy=1.17.3\n"
+                    "  - pandas=0.25.3\n"
+                    "  - pip:\n"
+                    "    - ipywidgets==7.5.1\n"
+                    "    - ferretmagic==20181001\n"
+                )
+            specs = _environment_yml_pip_specs(path)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        self.assertEqual(specs, ["numpy==1.17.3", "pandas==0.25.3", "ipywidgets==7.5.1", "ferretmagic==20181001"])
+
+    def test_a_pinned_pip_entry_is_never_installed(self):
+        """Regression test for a real bug found pinning this against
+        ipython_ferretmagic's own binder/environment.yml: downgrading the
+        *running* pip to its old conda-pinned version breaks pip's own
+        internals on a modern Python (distutils was removed in 3.12),
+        silently failing every install attempted after it in the batch."""
+        from repair_tool.repo import _environment_yml_pip_specs
+
+        tmpdir = tempfile.mkdtemp()
+        try:
+            path = os.path.join(tmpdir, "environment.yml")
+            with open(path, "w") as f:
+                f.write("dependencies:\n  - numpy=1.17.3\n  - pip=19.3.1\n")
+            specs = _environment_yml_pip_specs(path)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        self.assertEqual(specs, ["numpy==1.17.3"])
+
+    def test_a_build_string_pin_is_skipped_not_mistranslated(self):
+        from repair_tool.repo import _environment_yml_pip_specs
+
+        tmpdir = tempfile.mkdtemp()
+        try:
+            path = os.path.join(tmpdir, "environment.yml")
+            with open(path, "w") as f:
+                f.write("dependencies:\n  - numpy=1.17.3=py37h2f8d375_0\n")
+            specs = _environment_yml_pip_specs(path)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        self.assertEqual(specs, [])
+
+    def test_an_unreadable_file_returns_empty_not_a_crash(self):
+        from repair_tool.repo import _environment_yml_pip_specs
+
+        self.assertEqual(_environment_yml_pip_specs("/no/such/file.yml"), [])
 
 
 class TestAnalyzeRepoOffline(unittest.TestCase):

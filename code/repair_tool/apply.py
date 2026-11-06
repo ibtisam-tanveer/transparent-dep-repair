@@ -14,14 +14,31 @@ from .repair import Proposal
 DEFAULT_TIMEOUT = 300
 
 
-def apply(proposal: Proposal, python_exe: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[bool, str]:
+def apply(proposal: Proposal, python_exe: str, timeout: int = DEFAULT_TIMEOUT, era_date: str | None = None) -> tuple[bool, str]:
     """Run `proposal`'s install inside the venv at `python_exe`.
 
     Never raises: a timeout or a failed install both come back as
     (False, <log explaining what happened>), same contract as run_project.
+    `era_date` only matters with lever era_resolve on (see era.py); otherwise it is ignored.
     """
+    ok, log, _meta = apply_ex(proposal, python_exe, timeout, era_date)
+    return ok, log
+
+
+def apply_ex(
+    proposal: Proposal, python_exe: str, timeout: int = DEFAULT_TIMEOUT, era_date: str | None = None,
+) -> tuple[bool, str, dict]:
+    """apply() plus the era-resolution record ({} when the lever is off)."""
     if proposal.kind != "install":
-        return False, f"nothing to apply for proposal kind={proposal.kind!r}"
+        return False, f"nothing to apply for proposal kind={proposal.kind!r}", {}
+
+    from . import era
+
+    if era.enabled():
+        ok, log, meta = era.pip_install(python_exe, [proposal.package], era_date, timeout, allow_fallback=not era.strict_enabled())
+        if log.startswith("pip install timed out"):
+            log = f"install of {proposal.package!r} timed out after {timeout}s"
+        return ok, log, meta
 
     try:
         completed = subprocess.run(
@@ -33,12 +50,12 @@ def apply(proposal: Proposal, python_exe: str, timeout: int = DEFAULT_TIMEOUT) -
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
-        return False, f"install of {proposal.package!r} timed out after {timeout}s"
+        return False, f"install of {proposal.package!r} timed out after {timeout}s", {}
     except OSError as exc:
-        return False, f"could not run {python_exe!r}: {exc}"
+        return False, f"could not run {python_exe!r}: {exc}", {}
 
     log = completed.stdout + completed.stderr
-    return completed.returncode == 0, log
+    return completed.returncode == 0, log, {}
 
 
 def installed_packages(python_exe: str, timeout: int = 60) -> set[str]:

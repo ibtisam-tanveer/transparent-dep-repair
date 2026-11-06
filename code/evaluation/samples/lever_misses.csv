@@ -1,0 +1,10 @@
+repository,clone_url,notebook_path,error_type,error_message,category,tier,python_version,repository_id
+ssehztirom/interpretable-generative-deep-learning,https://github.com/ssehztirom/interpretable-generative-deep-learning.git,PBMCscVI.ipynb,ModuleNotFoundError,,A,confirmed,3.8.5,1982
+KULL-Centre/ProteinUnfolding2D,https://github.com/KULL-Centre/ProteinUnfolding2D.git,examples/ACBP_unfolding2d.ipynb,ModuleNotFoundError,,A,confirmed,3.6.13,435
+Reosu/modulome_mtb,https://github.com/Reosu/modulome_mtb.git,notebooks/03_ica_dimensionality.ipynb,ModuleNotFoundError,,A,confirmed,3.7.5,1669
+dekkerlab/matrix_paper,https://github.com/dekkerlab/matrix_paper.git,notebooks/plot_heatmap_sections_HFF_matrix_fig.ipynb,ModuleNotFoundError,,A,confirmed,3.6.6,2299
+volkamerlab/TeachOpenCADD,https://github.com/volkamerlab/TeachOpenCADD.git,teachopencadd/talktorials/T014_binding_site_detection/talktorial.ipynb,ModuleNotFoundError,,A,confirmed,3.7.10,4428
+blab/h5n1-cambodia,https://github.com/blab/h5n1-cambodia.git,figures/figure-3-nucleotide-diversity.ipynb,ModuleNotFoundError,,A,confirmed,3.7.3,955
+briney/grp_paper,https://github.com/briney/grp_paper.git,data_processing/02_clonotype-and-sequence-counting.ipynb,ModuleNotFoundError,,A,confirmed,3.6.4,3509
+RafalKucharskiPK/MaaSSim,https://github.com/RafalKucharskiPK/MaaSSim.git,docs/Experiments/E_01_spatial_patterns.ipynb,ModuleNotFoundError,,A,confirmed,3.7.6,1318
+samplchallenges/SAMPL8,https://github.com/samplchallenges/SAMPL8.git,physical_properties/microstates/make_mol2_sdf_pdb_files.ipynb,ModuleNotFoundError,,A,confirmed,3.6.11,1387

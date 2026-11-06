@@ -210,7 +210,9 @@ class TestBuildReportNetwork(unittest.TestCase):
         # this test only needs to prove build_report renders a real trace.
         from repair_tool.agent import agent_repair
 
-        result = agent_repair(os.path.join(EXAMPLES, "07_collections_abc.py"))
+        # fresh=True: cached mode would reuse a copy a previous run already fixed
+        # and report "no fix action was taken" (a test-isolation flaw, not a tool bug).
+        result = agent_repair(os.path.join(EXAMPLES, "07_collections_abc.py"), fresh=True)
         self.assertTrue(result.fixed, msg=result.error)
 
         report = build_report(result)

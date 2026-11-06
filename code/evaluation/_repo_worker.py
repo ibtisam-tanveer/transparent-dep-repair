@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from evaluation._repo_runner import run_repo_incrementally
 from evaluation.run_eval import build_result_row
+from repair_tool.agent import DEFAULT_NO_PROGRESS_LIMIT
 
 
 def main() -> int:
@@ -50,7 +51,15 @@ def main() -> int:
     try:
         with open(args.output, "w", encoding="utf-8") as out_f:
             for file_result, repo_meta in run_repo_incrementally(
-                job["clone_path"], tmp_root, job["max_steps_per_file"], job["budget_seconds"]
+                job["clone_path"], tmp_root, job["max_steps_per_file"], job["budget_seconds"],
+                no_progress_limit=job.get("no_progress_limit", DEFAULT_NO_PROGRESS_LIMIT),
+                repair_interpreter=job.get("repair_interpreter", True),
+                run_postbuild=job.get("run_postbuild", True),
+                runtime=job.get("runtime", "host"), platform=job.get("platform", "linux/amd64"),
+                container_scale=job.get("container_scale", 1.0), container_name=job.get("container_name"),
+                only_paths=set(by_path),
+                era_hints={p: {"paper_date": f.get("paper_date") or None, "paper_date_kind": f.get("paper_date_kind") or "published"}
+                           for p, f in by_path.items()},
             ):
                 seen_paths.add(file_result.target)
                 failure = by_path.get(file_result.target)
@@ -58,6 +67,7 @@ def main() -> int:
                     row = build_result_row(
                         job["repository"], job["clone_url"], failure, file_result, repo_meta,
                         job["run_id"], job["max_steps_per_file"], any_real_fix_seen_so_far,
+                        repo_path=job["clone_path"],
                     )
                     out_f.write(json.dumps(row) + "\n")
                     out_f.flush()
