@@ -39,6 +39,42 @@ class TestLoadFailuresByRepo(unittest.TestCase):
             import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
 
+    def test_in_scope_confirmed_only_keeps_confirmed_a_and_either_tier_of_c_and_d(self):
+        """PILOT_DECISIONS.md #3, as adjusted (see IN_SCOPE_TIERS_BY_CATEGORY):
+        category A is confirmed-tier only; the real dataset.csv has zero
+        confirmed-tier C/D rows, so those are allowed at candidate tier too.
+        Category E, and a candidate-tier A row, must still be dropped."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            path = os.path.join(tmpdir, "failures.csv")
+            _write_csv(path, [
+                {"repository": "a/repo", "clone_url": "u", "notebook_path": "1.ipynb", "category": "A", "tier": "confirmed"},
+                {"repository": "a/repo", "clone_url": "u", "notebook_path": "2.ipynb", "category": "E", "tier": "confirmed"},
+                {"repository": "a/repo", "clone_url": "u", "notebook_path": "3.ipynb", "category": "C", "tier": "candidate"},
+                {"repository": "a/repo", "clone_url": "u", "notebook_path": "4.ipynb", "category": "A", "tier": "candidate"},
+                {"repository": "b/repo", "clone_url": "u", "notebook_path": "5.ipynb", "category": "D", "tier": "confirmed"},
+            ])
+            by_repo = load_failures_by_repo(path, in_scope_confirmed_only=True)
+            self.assertEqual(set(by_repo.keys()), {"a/repo", "b/repo"})
+            self.assertEqual([r["notebook_path"] for r in by_repo["a/repo"]], ["1.ipynb", "3.ipynb"])
+            self.assertEqual([r["notebook_path"] for r in by_repo["b/repo"]], ["5.ipynb"])
+        finally:
+            import shutil
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_in_scope_confirmed_only_off_by_default(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            path = os.path.join(tmpdir, "failures.csv")
+            _write_csv(path, [
+                {"repository": "a/repo", "clone_url": "u", "notebook_path": "1.ipynb", "category": "E", "tier": "candidate"},
+            ])
+            by_repo = load_failures_by_repo(path)
+            self.assertEqual(len(by_repo["a/repo"]), 1)
+        finally:
+            import shutil
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
 
 class TestCheckpoint(unittest.TestCase):
     def test_missing_checkpoint_file_is_an_empty_set(self):
@@ -61,14 +97,58 @@ def _fix_step(tool: str, grounding: str, verification: str, confidence: str) -> 
                       grounding=grounding, verification=verification, confidence=confidence)
 
 
-def _fake_worker_fixing_everything(repository, clone_url, clone_path, failure_rows, run_id, max_steps_per_file, budget_seconds, timeout_seconds):
+def _fake_worker_fixing_everything(
+    repository, clone_url, clone_path, failure_rows, run_id, max_steps_per_file, budget_seconds, timeout_seconds,
+    **kwargs,
+):
     """A run_repo_worker stand-in that reports every one of THIS call's
     own failure_rows as fixed -- unlike a static return_value, this stays
-    correct across different repos with different notebook paths."""
+    correct across different repos with different notebook paths.
+    **kwargs absorbs any newer keyword-only args (e.g. no_progress_limit)
+    the real signature grows -- without it, a mismatched call here doesn't
+    fail loudly, it's silently caught by process_one's own except-and-record
+    -and-error handler and shows up as a passing test with every row wrongly
+    marked "errored" instead of fixed (a real bug found writing this comment).
+    """
     return ([{"notebook_path": f["notebook_path"], "fixed": True, "discovered": True} for f in failure_rows], "ok")
 
 
 _REPO_META = {"env_setup_ok": True, "dependency_file_used": "requirements.txt"}
+
+
+class TestLooksLikeLocalModule(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_a_matching_py_file_anywhere_in_the_repo_counts(self):
+        from evaluation.run_eval import _looks_like_local_module
+
+        nested = os.path.join(self.tmpdir, "sub")
+        os.makedirs(nested)
+        with open(os.path.join(nested, "helper.py"), "w") as f:
+            f.write("")
+        self.assertTrue(_looks_like_local_module("helper", self.tmpdir))
+
+    def test_a_matching_package_directory_counts(self):
+        from evaluation.run_eval import _looks_like_local_module
+
+        os.makedirs(os.path.join(self.tmpdir, "mypkg"))
+        self.assertTrue(_looks_like_local_module("mypkg", self.tmpdir))
+
+    def test_a_dotted_submodule_checks_its_top_level_package(self):
+        from evaluation.run_eval import _looks_like_local_module
+
+        os.makedirs(os.path.join(self.tmpdir, "mypkg"))
+        self.assertTrue(_looks_like_local_module("mypkg.submodule", self.tmpdir))
+
+    def test_no_match_anywhere_returns_false(self):
+        from evaluation.run_eval import _looks_like_local_module
+
+        self.assertFalse(_looks_like_local_module("nonexistent_thing", self.tmpdir))
 
 
 class TestBuildResultRow(unittest.TestCase):
@@ -117,6 +197,137 @@ class TestBuildResultRow(unittest.TestCase):
         row = build_result_row("org/repo", "u", failure, free_file, _REPO_META, "run1", 30, False)
         self.assertFalse(row["cross_file_free_pass"])
 
+    def test_interpreter_provenance_is_carried_onto_the_row(self):
+        """TASK_interpreter_repair.md Part C: the interpreter decision is a
+        provenance-tagged repair step, surfaced next to package provenance."""
+        failure = {"notebook_path": "a.ipynb", "category": "A", "tier": "confirmed"}
+        repo_meta = {
+            **_REPO_META, "python_version_requested": "3.7", "python_version_actual": "3.8",
+            "python_version_source": "binder/environment.yml", "python_grounding": "metadata_grounded",
+            "python_mechanism": "uv", "python_note": "nearest available 3.8 used",
+            "interpreter_unprovisionable": False,
+        }
+        not_fixed = AgentResult(target="a.ipynb", fixed=False, trace=[])
+        row = build_result_row("org/repo", "u", failure, not_fixed, repo_meta, "run1", 30, False)
+        self.assertEqual(row["python_version_requested"], "3.7")
+        self.assertEqual(row["python_version_actual"], "3.8")
+        self.assertEqual(row["python_version_source"], "binder/environment.yml")
+        self.assertEqual(row["python_grounding"], "metadata_grounded")
+        self.assertEqual(row["python_mechanism"], "uv")
+        self.assertFalse(row["interpreter_unprovisionable"])
+
+    def test_budget_exhausted_flag_is_set_from_the_shared_error_prefix(self):
+        from evaluation._repo_runner import BUDGET_EXHAUSTED_ERROR_PREFIX
+
+        failure = {"notebook_path": "a.ipynb", "category": "A", "tier": "confirmed"}
+        never_attempted = AgentResult(
+            target="a.ipynb", fixed=False,
+            error=f"{BUDGET_EXHAUSTED_ERROR_PREFIX} (600s for this repo) before this file was attempted",
+        )
+        row = build_result_row("org/repo", "u", failure, never_attempted, _REPO_META, "run1", 30, False)
+        self.assertTrue(row["budget_exhausted"])
+
+    def test_budget_exhausted_flag_is_false_for_a_genuine_failure(self):
+        failure = {"notebook_path": "a.ipynb", "category": "A", "tier": "confirmed"}
+        genuine_failure = AgentResult(target="a.ipynb", fixed=False, error="")
+        row = build_result_row("org/repo", "u", failure, genuine_failure, _REPO_META, "run1", 30, False)
+        self.assertFalse(row["budget_exhausted"])
+
+    def test_quota_exhausted_flag_is_surfaced_from_the_agent_result(self):
+        """Found running the real pilot smoke test: the API key ran out of
+        credits mid-run -- this must be surfaced into the row so
+        analyze_results.py can exclude it from the effectiveness
+        denominator, the same way too_large_for_context already is."""
+        failure = {"notebook_path": "a.ipynb", "category": "A", "tier": "confirmed"}
+        quota_hit = AgentResult(target="a.ipynb", fixed=False, error="LLM call failed: insufficient_quota", quota_exhausted=True)
+        row = build_result_row("org/repo", "u", failure, quota_hit, _REPO_META, "run1", 30, False)
+        self.assertTrue(row["quota_exhausted"])
+
+    def test_quota_exhausted_flag_is_false_for_a_genuine_failure(self):
+        failure = {"notebook_path": "a.ipynb", "category": "A", "tier": "confirmed"}
+        genuine_failure = AgentResult(target="a.ipynb", fixed=False, error="")
+        row = build_result_row("org/repo", "u", failure, genuine_failure, _REPO_META, "run1", 30, False)
+        self.assertFalse(row["quota_exhausted"])
+
+    def test_runtime_observed_category_is_empty_for_a_fixed_notebook(self):
+        failure = {"notebook_path": "a.ipynb", "category": "A", "tier": "confirmed"}
+        fixed_file = AgentResult(target="a.ipynb", fixed=True, trace=[])
+        row = build_result_row("org/repo", "u", failure, fixed_file, _REPO_META, "run1", 30, False)
+        self.assertEqual(row["runtime_observed_category"], "")
+
+    def test_runtime_observed_category_reclassifies_an_out_of_scope_runtime_failure(self):
+        """PILOT_DECISIONS.md #4: a notebook statically labelled A (missing
+        dependency) that, when actually run, fails on a missing data file
+        instead -- the real observed failure, not the static CSV guess,
+        decides the category, via the same classifier the CSV labels used."""
+        failure = {"notebook_path": "a.ipynb", "category": "A", "tier": "confirmed"}
+        last_observation = TraceStep(
+            thought="", tool_called="verify", tool_input={},
+            tool_result={"ok": False, "stderr": "FileNotFoundError: [Errno 2] No such file or directory: 'data.csv'"},
+            grounding="deterministic", verification="n/a",
+        )
+        not_fixed = AgentResult(target="a.ipynb", fixed=False, trace=[last_observation])
+        row = build_result_row("org/repo", "u", failure, not_fixed, _REPO_META, "run1", 30, False)
+        self.assertEqual(row["runtime_observed_category"], "E")
+
+    @patch("evaluation.run_eval.pypi.resolve_package_name", return_value="seaborn")
+    def test_runtime_observed_category_matches_the_static_label_when_genuinely_a_dependency_problem(self, _mock_resolve):
+        failure = {"notebook_path": "a.ipynb", "category": "A", "tier": "confirmed"}
+        last_observation = TraceStep(
+            thought="", tool_called="run_target", tool_input={},
+            tool_result={"ok": False, "stderr": "ModuleNotFoundError: No module named 'seaborn'"},
+            grounding="deterministic", verification="n/a",
+        )
+        not_fixed = AgentResult(target="a.ipynb", fixed=False, trace=[last_observation])
+        row = build_result_row("org/repo", "u", failure, not_fixed, _REPO_META, "run1", 30, False)
+        self.assertEqual(row["runtime_observed_category"], "A")
+        self.assertFalse(row["local_module_import"])
+
+    def test_local_module_import_is_excluded_rather_than_counted_as_category_a(self):
+        """TASK_fix_repo_execution.md Part B: a ModuleNotFoundError for a
+        name that matches a real file in the repo (a local sibling module,
+        not a PyPI package) must not count as a category-A repair failure."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(tmpdir, "helper.py"), "w") as f:
+                f.write("def f(): pass\n")
+            failure = {"notebook_path": "a.ipynb", "category": "A", "tier": "confirmed"}
+            last_observation = TraceStep(
+                thought="", tool_called="run_target", tool_input={},
+                tool_result={"ok": False, "stderr": "ModuleNotFoundError: No module named 'helper'"},
+                grounding="deterministic", verification="n/a",
+            )
+            not_fixed = AgentResult(target="a.ipynb", fixed=False, trace=[last_observation])
+            row = build_result_row("org/repo", "u", failure, not_fixed, _REPO_META, "run1", 30, False, repo_path=tmpdir)
+            self.assertTrue(row["local_module_import"])
+            self.assertEqual(row["runtime_observed_category"], "")
+        finally:
+            import shutil
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    @patch("evaluation.run_eval.pypi.resolve_package_name", return_value=None)
+    def test_a_module_that_is_neither_local_nor_a_confirmed_pypi_package_falls_through(self, _mock_resolve):
+        """Not every missing_module case resolves cleanly either way --
+        falls through to the general taxonomy classifier, same as before,
+        rather than being silently misclassified as local or as A."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            failure = {"notebook_path": "a.ipynb", "category": "A", "tier": "confirmed"}
+            last_observation = TraceStep(
+                thought="", tool_called="run_target", tool_input={},
+                tool_result={"ok": False, "stderr": "ModuleNotFoundError: No module named 'totally_unresolved_xyz'"},
+                grounding="deterministic", verification="n/a",
+            )
+            not_fixed = AgentResult(target="a.ipynb", fixed=False, trace=[last_observation])
+            row = build_result_row("org/repo", "u", failure, not_fixed, _REPO_META, "run1", 30, False, repo_path=tmpdir)
+            self.assertFalse(row["local_module_import"])
+            # "no module named" is itself a confirmed-A override in
+            # dataset/taxonomy.py's classifier -- see its _MESSAGE_OVERRIDES.
+            self.assertEqual(row["runtime_observed_category"], "A")
+        finally:
+            import shutil
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
     def test_cross_file_free_pass_requires_order_a_later_fix_does_not_count(self):
         """The caller must only pass any_real_fix_seen_before_this_file
         based on files processed STRICTLY earlier -- this test documents
@@ -151,7 +362,7 @@ class TestRunResumability(unittest.TestCase):
         import shutil
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    @patch("evaluation.run_eval.count_discovered_files", return_value=1)
+    @patch("evaluation.run_eval.count_target_files", return_value=1)
     @patch("evaluation.run_eval.run_repo_worker")
     @patch("evaluation.run_eval.clone_repo")
     def test_resuming_skips_already_done_repos(self, mock_clone, mock_worker, _mock_count):
@@ -172,7 +383,7 @@ class TestRunResumability(unittest.TestCase):
             rows = [json.loads(line) for line in f]
         self.assertEqual(len(rows), 3)
 
-    @patch("evaluation.run_eval.count_discovered_files", return_value=1)
+    @patch("evaluation.run_eval.count_target_files", return_value=1)
     @patch("evaluation.run_eval.run_repo_worker")
     @patch("evaluation.run_eval.clone_repo")
     def test_sample_limits_how_many_repos_are_processed(self, mock_clone, mock_worker, _mock_count):
@@ -183,7 +394,7 @@ class TestRunResumability(unittest.TestCase):
             limit_minutes=None, max_llm_calls=None, tag="t2")
         self.assertEqual(mock_worker.call_count, 1)
 
-    @patch("evaluation.run_eval.count_discovered_files", return_value=1)
+    @patch("evaluation.run_eval.count_target_files", return_value=1)
     @patch("evaluation.run_eval.run_repo_worker")
     @patch("evaluation.run_eval.clone_repo")
     def test_a_repo_that_raises_is_recorded_as_an_error_not_a_crash(self, mock_clone, mock_worker, _mock_count):
@@ -198,7 +409,7 @@ class TestRunResumability(unittest.TestCase):
         self.assertEqual(len(rows), 3)
         self.assertTrue(all("boom" in r["error"] for r in rows))
 
-    @patch("evaluation.run_eval.count_discovered_files", return_value=1)
+    @patch("evaluation.run_eval.count_target_files", return_value=1)
     @patch("evaluation.run_eval.run_repo_worker")
     @patch("evaluation.run_eval.clone_repo")
     def test_a_failed_clone_is_recorded_without_calling_the_worker(self, mock_clone, mock_worker, _mock_count):
@@ -212,7 +423,7 @@ class TestRunResumability(unittest.TestCase):
             rows = [json.loads(line) for line in f]
         self.assertTrue(all("clone failed" in r["error"] for r in rows))
 
-    @patch("evaluation.run_eval.count_discovered_files", return_value=1)
+    @patch("evaluation.run_eval.count_target_files", return_value=1)
     @patch("evaluation.run_eval.run_repo_worker")
     @patch("evaluation.run_eval.clone_repo")
     def test_a_timed_out_repo_with_no_partial_rows_backfills_every_notebook(self, mock_clone, mock_worker, _mock_count):
@@ -232,7 +443,7 @@ class TestRunResumability(unittest.TestCase):
         self.assertTrue(all("timed out" in r["error"] for r in rows))
         self.assertTrue(all(r["discovered"] is False for r in rows))
 
-    @patch("evaluation.run_eval.count_discovered_files", return_value=1)
+    @patch("evaluation.run_eval.count_target_files", return_value=1)
     @patch("evaluation.run_eval.run_repo_worker")
     @patch("evaluation.run_eval.clone_repo")
     def test_a_timed_out_repo_keeps_whatever_partial_rows_it_already_has(self, mock_clone, mock_worker, _mock_count):
@@ -261,7 +472,7 @@ class TestRunResumability(unittest.TestCase):
         self.assertFalse(x2["discovered"])
         self.assertIn("timed out", x2["error"])
 
-    @patch("evaluation.run_eval.count_discovered_files", return_value=7)
+    @patch("evaluation.run_eval.count_target_files", return_value=7)
     @patch("evaluation.run_eval.run_repo_worker")
     @patch("evaluation.run_eval.clone_repo")
     def test_budget_scales_with_discovered_file_count(self, mock_clone, mock_worker, _mock_count):
@@ -277,6 +488,42 @@ class TestRunResumability(unittest.TestCase):
         budget_seconds = call_args.args[-2] if len(call_args.args) >= 2 else call_args.kwargs.get("budget_seconds")
         self.assertEqual(budget_seconds, 700)  # 7 files * 100s/file
 
+    @patch("evaluation.run_eval.count_target_files", return_value=1)
+    @patch("evaluation.run_eval.run_repo_worker")
+    @patch("evaluation.run_eval.clone_repo")
+    def test_workers_greater_than_one_processes_every_repo_exactly_once(self, mock_clone, mock_worker, _mock_count):
+        """TASK_agent_stopping.md #4: concurrent dispatch must produce the
+        same coverage as sequential -- every repo processed exactly once,
+        order aside."""
+        mock_clone.return_value = ("/fake/clone", "ok")
+        mock_worker.side_effect = _fake_worker_fixing_everything
+
+        run(self.failures_csv, self.results_dir, sample=0, seed=1, max_steps_per_file=30,
+            limit_minutes=None, max_llm_calls=None, tag="tworkers", workers=3)
+
+        self.assertEqual(mock_worker.call_count, 3)
+        called_repos = {call.args[0] for call in mock_worker.call_args_list}
+        self.assertEqual(called_repos, {"a/repo", "b/repo", "c/repo"})
+        with open(os.path.join(self.results_dir, "tworkers.jsonl"), encoding="utf-8") as f:
+            rows = [json.loads(line) for line in f]
+        self.assertEqual(len(rows), 3)
+        self.assertTrue(all(r["fixed"] for r in rows))
+
+    @patch("evaluation.run_eval.count_target_files", return_value=1)
+    @patch("evaluation.run_eval.run_repo_worker")
+    @patch("evaluation.run_eval.clone_repo")
+    def test_workers_resuming_still_skips_already_done_repos(self, mock_clone, mock_worker, _mock_count):
+        mock_clone.return_value = ("/fake/clone", "ok")
+        mock_worker.side_effect = _fake_worker_fixing_everything
+
+        run(self.failures_csv, self.results_dir, sample=0, seed=1, max_steps_per_file=30,
+            limit_minutes=None, max_llm_calls=None, tag="tworkers2", workers=2)
+        self.assertEqual(mock_worker.call_count, 3)
+
+        run(self.failures_csv, self.results_dir, sample=0, seed=1, max_steps_per_file=30,
+            limit_minutes=None, max_llm_calls=None, tag="tworkers2", workers=2)
+        self.assertEqual(mock_worker.call_count, 3, "nothing left to do -- the checkpoint must still prevent redoing finished repos")
+
 
 class TestRunRepoWorker(unittest.TestCase):
     """run_repo_worker's own plumbing (temp files, timeout handling, exit
@@ -289,7 +536,7 @@ class TestRunRepoWorker(unittest.TestCase):
 
         from evaluation.run_eval import run_repo_worker
 
-        with patch("evaluation.run_eval.subprocess.run", side_effect=subprocess_module.TimeoutExpired(cmd="x", timeout=1)):
+        with patch("evaluation.run_eval.run_group", side_effect=subprocess_module.TimeoutExpired(cmd="x", timeout=1)):
             rows, status = run_repo_worker("x/y", "u", "/fake/path", [{"notebook_path": "a.ipynb"}], "run1", 30, 100, timeout_seconds=1)
 
         self.assertEqual(rows, [])
@@ -307,7 +554,7 @@ class TestRunRepoWorker(unittest.TestCase):
             import subprocess as subprocess_module
             raise subprocess_module.TimeoutExpired(cmd=cmd, timeout=1)
 
-        with patch("evaluation.run_eval.subprocess.run", side_effect=fake_run):
+        with patch("evaluation.run_eval.run_group", side_effect=fake_run):
             rows, status = run_repo_worker("x/y", "u", "/fake/path", [], "run1", 30, 100, timeout_seconds=1)
 
         self.assertEqual(rows, [{"notebook_path": "a.ipynb", "fixed": True}])
@@ -322,7 +569,7 @@ class TestRunRepoWorker(unittest.TestCase):
                 f.write(json.dumps({"notebook_path": "a.ipynb", "fixed": False}) + "\n")
             return MagicMock(returncode=1, stdout="", stderr="Traceback: boom")
 
-        with patch("evaluation.run_eval.subprocess.run", side_effect=fake_run):
+        with patch("evaluation.run_eval.run_group", side_effect=fake_run):
             rows, status = run_repo_worker("x/y", "u", "/fake/path", [], "run1", 30, 100, timeout_seconds=60)
 
         self.assertEqual(rows, [{"notebook_path": "a.ipynb", "fixed": False}])
@@ -340,7 +587,7 @@ class TestRunRepoWorker(unittest.TestCase):
             written_output_paths.append(output_path)
             return MagicMock(returncode=0, stdout="", stderr="")
 
-        with patch("evaluation.run_eval.subprocess.run", side_effect=fake_run):
+        with patch("evaluation.run_eval.run_group", side_effect=fake_run):
             rows, status = run_repo_worker("x/y", "u", "/fake/path", [], "run1", 30, 100, timeout_seconds=60)
 
         self.assertEqual(status, "ok")
@@ -358,7 +605,7 @@ class TestRunRepoWorker(unittest.TestCase):
             import subprocess as subprocess_module
             raise subprocess_module.TimeoutExpired(cmd=cmd, timeout=1)
 
-        with patch("evaluation.run_eval.subprocess.run", side_effect=fake_run):
+        with patch("evaluation.run_eval.run_group", side_effect=fake_run):
             rows, status = run_repo_worker("x/y", "u", "/fake/path", [], "run1", 30, 100, timeout_seconds=1)
 
         self.assertEqual(rows, [{"notebook_path": "a.ipynb", "fixed": True}])

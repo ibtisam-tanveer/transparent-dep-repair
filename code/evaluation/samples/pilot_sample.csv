@@ -1,0 +1,27 @@
+repository,clone_url,notebook_path,error_type,error_message,category,tier,python_version,repository_id
+ssehztirom/interpretable-generative-deep-learning,https://github.com/ssehztirom/interpretable-generative-deep-learning.git,PBMCscVI.ipynb,ModuleNotFoundError,,A,confirmed,3.8.5,1982
+KULL-Centre/ProteinUnfolding2D,https://github.com/KULL-Centre/ProteinUnfolding2D.git,examples/ACBP_unfolding2d.ipynb,ModuleNotFoundError,,A,confirmed,3.6.13,435
+Reosu/modulome_mtb,https://github.com/Reosu/modulome_mtb.git,notebooks/03_ica_dimensionality.ipynb,ModuleNotFoundError,,A,confirmed,3.7.5,1669
+dekkerlab/matrix_paper,https://github.com/dekkerlab/matrix_paper.git,notebooks/plot_heatmap_sections_HFF_matrix_fig.ipynb,ModuleNotFoundError,,A,confirmed,3.6.6,2299
+TimoHenry/MitochondrialRNAgranules,https://github.com/TimoHenry/MitochondrialRNAgranules.git,STORM_2C_Plots.ipynb,ModuleNotFoundError,,A,confirmed,3.7.4,3440
+Gardner-BinfLab/SoDoPE_paper_2020,https://github.com/Gardner-BinfLab/SoDoPE_paper_2020.git,protr_R_Package_analysis/E_coli/feature_analysis_Ecoli.ipynb,ModuleNotFoundError,,A,confirmed,3.6.9,3683
+volkamerlab/TeachOpenCADD,https://github.com/volkamerlab/TeachOpenCADD.git,teachopencadd/talktorials/T014_binding_site_detection/talktorial.ipynb,ModuleNotFoundError,,A,confirmed,3.7.10,4428
+atudell/Color-Cluster-Kit,https://github.com/atudell/Color-Cluster-Kit.git,Data Collector (Sandblossom).ipynb,ModuleNotFoundError,,A,confirmed,3.7.1,88
+jessegmeyerlab/MIMaL,https://github.com/jessegmeyerlab/MIMaL.git,python/correlation.ipynb,ModuleNotFoundError,,A,confirmed,3.8.5,558
+blab/h5n1-cambodia,https://github.com/blab/h5n1-cambodia.git,figures/figure-3-nucleotide-diversity.ipynb,ModuleNotFoundError,,A,confirmed,3.7.3,955
+briney/grp_paper,https://github.com/briney/grp_paper.git,data_processing/02_clonotype-and-sequence-counting.ipynb,ModuleNotFoundError,,A,confirmed,3.6.4,3509
+RafalKucharskiPK/MaaSSim,https://github.com/RafalKucharskiPK/MaaSSim.git,docs/Experiments/E_01_spatial_patterns.ipynb,ModuleNotFoundError,,A,confirmed,3.7.6,1318
+symbiologist/dualgenomewide,https://github.com/symbiologist/dualgenomewide.git,analysis/perturbseq/scripts/scvelo.ipynb,ModuleNotFoundError,,A,confirmed,3.8.3,707
+csabaiBio/RBD-AlphaFold2-structures-and-phenotypic-information,https://github.com/csabaiBio/RBD-AlphaFold2-structures-and-phenotypic-information.git,SARS-CoV-2-RBD_DMS_Omicron/process_ccs_BA1.ipynb,ModuleNotFoundError,,A,confirmed,3.8.13,37
+dwslab/jRDF2Vec,https://github.com/dwslab/jRDF2Vec.git,examples/jupyter_notebook/jRDF2vec-for-oa.ipynb,ModuleNotFoundError,,A,confirmed,3.8.5,3403
+samplchallenges/SAMPL8,https://github.com/samplchallenges/SAMPL8.git,physical_properties/microstates/make_mol2_sdf_pdb_files.ipynb,ModuleNotFoundError,,A,confirmed,3.6.11,1387
+theislab/singlecell_proteomics,https://github.com/theislab/singlecell_proteomics.git,TSP_cell_cycle_analysis.ipynb,ModuleNotFoundError,,A,confirmed,3.8.2,1756
+theislab/2022_Bakhti_pancreas_Syt13,https://github.com/theislab/2022_Bakhti_pancreas_Syt13.git,human_invitro_Veres2019.ipynb,ModuleNotFoundError,,A,confirmed,3.6.12,1064
+basantab/NTF2Analysis,https://github.com/basantab/NTF2Analysis.git,GlycineTryp_control_analysis/gly_resc_and_trp_lock_effect.ipynb,AttributeError,,C,candidate,3.7.1,3546
+MLWave/kepler-mapper,https://github.com/MLWave/kepler-mapper.git,examples/breast-cancer/breast-cancer.ipynb,AttributeError,,C,candidate,3.9.5,4290
+spacetx/starfish,https://github.com/spacetx/starfish.git,notebooks/SeqFISH.ipynb,AttributeError,,C,candidate,3.9.13,1559
+pstjohn/bde_model_methods,https://github.com/pstjohn/bde_model_methods.git,evaluate_models.ipynb,AttributeError,,C,candidate,3.7.3,3764
+AgileBioFoundry/Rt_IFO0880,https://github.com/AgileBioFoundry/Rt_IFO0880.git,Notebooks/0.Annotation_and_Draft_reconstruction/Annotation_Transporters_TCDB.ipynb,CalledProcessError,,D,candidate,3.8.5,3154
+jrgreen7/SYSC4906,https://github.com/jrgreen7/SYSC4906.git,F2020/Assignments/Assignment2/Assignment2-DeepPurpose-DTI-Prediction.ipynb,CalledProcessError,,D,candidate,3.7.7,1081
+open2c/pairtools,https://github.com/open2c/pairtools.git,doc/examples/benchmark/benchmark.ipynb,CalledProcessError,,D,candidate,3.8.13,213
+NCBI-Hackathons/TheHumanPangenome,https://github.com/NCBI-Hackathons/TheHumanPangenome.git,MHC/e2e_notebooks/02_run_assembler.ipynb,CalledProcessError,,D,candidate,3.7.3,3469

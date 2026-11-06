@@ -19,6 +19,14 @@ dependencies = [
     # gets installed into each target venv instead (venv_manager.ensure_ipykernel).
     "nbclient",
     "nbformat",
+    # Interpreter repair (repair_tool/interpreter.py, TASK_interpreter_repair.md):
+    # uv fetches CPython builds on demand for a repo's declared/era Python;
+    # pyyaml/packaging parse its environment.yml and python_requires. conda/
+    # micromamba (for conda recipes) is an optional external tool -- see
+    # INTERPRETER_REPAIR_SUMMARY.md "Setup".
+    "uv",
+    "pyyaml",
+    "packaging",
 ]
 
 [project.optional-dependencies]

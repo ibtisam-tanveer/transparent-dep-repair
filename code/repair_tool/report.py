@@ -112,6 +112,31 @@ def _file_outcome_line(file_result: AgentResult) -> str:
     return f"{file_result.target}: NOT FIXED (the agent found no verified fix)"
 
 
+def _interpreter_line(meta: dict) -> str:
+    """One provenance line for the interpreter decision -- the same
+    grounded-vs-inferred honesty the package fixes get (TASK_interpreter_repair.md
+    Part C)."""
+    requested = meta.get("python_version_requested")
+    actual = meta.get("python_version_actual")
+    source = meta.get("python_version_source")
+    grounded = meta.get("python_grounding") == GROUNDING_METADATA
+    basis = (
+        f"declared in {source} (grounded)" if grounded
+        else f"inferred from the repo's era (ungrounded)" if source == "era-inferred"
+        else "no declaration"
+    )
+    if meta.get("interpreter_unprovisionable"):
+        return (f"Interpreter: Python {requested} requested ({basis}) but NOT provisionable -- "
+                f"{meta.get('python_note') or 'no reachable build'}; ran on the default Python {actual}")
+    if requested is None:
+        return f"Interpreter: Python {actual} (default; the repo declares no version and no era signal was available)"
+    if meta.get("python_mechanism") in ("conda", "uv", "reused"):
+        suffix = f"; {meta['python_note']}" if meta.get("python_note") else ""
+        return (f"Interpreter: Python {actual} provisioned via {meta['python_mechanism']} "
+                f"(requested {requested}, {basis}){suffix}")
+    return f"Interpreter: Python {actual} (matches the {basis} requirement; nothing to provision)"
+
+
 def build_repo_report(result: RepoAgentResult) -> str:
     """Render `result` as a plain-text, repository-level transparency
     report: the overall outcome, every file with its outcome and accepted
@@ -135,6 +160,8 @@ def build_repo_report(result: RepoAgentResult) -> str:
         f"Outcome: {now_running} of {total} files now run "
         f"({already_passing} already passing, {fixed} fixed by the agent, {still_failing} still failing)"
     )
+    if result.interpreter:
+        lines.append(_interpreter_line(result.interpreter))
     if result.dependency_file_used:
         lines.append(f"Dependencies installed from: {result.dependency_file_used}")
     elif result.dependency_files_found:

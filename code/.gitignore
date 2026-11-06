@@ -17,3 +17,11 @@ dataset/raw/
 build/
 dist/
 evaluation/results/
+
+# local interpreter-provisioning tools (micromamba), not part of the repo
+.tools/
+
+# data files downloaded by notebooks while they were being repaired (runtime artifacts, ~1.1 GB)
+data/
+mobility_trends.csv
+*_oxcgrt.csv

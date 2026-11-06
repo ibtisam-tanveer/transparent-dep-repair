@@ -23,7 +23,10 @@ import tempfile
 from dataclasses import dataclass, field
 from typing import Callable
 
+import yaml
+
 from .diagnose import Diagnosis, diagnose_result
+from .proc import run_group
 from .runner import RunResult, run_project
 from .venv_manager import get_venv_python
 
@@ -120,11 +123,46 @@ def discover_runnable_files(repo_path: str) -> list[str]:
 
 
 def find_dependency_files(repo_path: str) -> list[str]:
-    """Which of the known dependency-declaration filenames exist at the
-    repo root, in priority order (not necessarily the order they'll be
-    used in -- see _install_dependencies for what's actually installable).
+    """Which of the known dependency-declaration filenames exist anywhere
+    in the repo (not just the root), in DEPENDENCY_FILENAMES priority
+    order -- not necessarily the order they'll be used in, see
+    _install_dependencies for what's actually installable.
+
+    TASK_version_decay_diagnosis.md Part B: a declared recipe can live in
+    a subdirectory by convention (e.g. Binder's binder/environment.yml) --
+    root-only search made it invisible to this tool entirely, which is
+    exactly "declared dependencies ignored". os.walk visits a directory's
+    own files before descending into its subdirectories, so the first
+    match found for a given filename is already the shallowest one.
     """
-    return [name for name in DEPENDENCY_FILENAMES if os.path.isfile(os.path.join(repo_path, name))]
+    found: dict[str, str] = {}
+    for root, dirs, files in os.walk(repo_path):
+        dirs[:] = [d for d in dirs if not _is_excluded_dir(d) and not _is_venv_dir(os.path.join(root, d))]
+        for fname in files:
+            if fname in DEPENDENCY_FILENAMES and fname not in found:
+                found[fname] = os.path.relpath(os.path.join(root, fname), repo_path)
+    return [found[name] for name in DEPENDENCY_FILENAMES if name in found]
+
+
+def repo_last_commit_date(repo_path: str) -> str | None:
+    """ISO date ("YYYY-MM-DD") of repo_path's most recent commit, or None
+    if it isn't a git repo (or the lookup fails) -- TASK_version_decay_diagnosis.md
+    Part B: caps an undeclared install to a version plausibly contemporary
+    with the notebook, instead of defaulting to today's latest. Never
+    guessed when unavailable -- callers fall back to the existing
+    latest-version behaviour in that case, not a made-up date.
+    """
+    try:
+        completed = subprocess.run(
+            ["git", "-C", repo_path, "log", "-1", "--format=%ad", "--date=short"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    if completed.returncode != 0:
+        return None
+    date = completed.stdout.strip()
+    return date or None
 
 
 def _pyproject_declares_a_package(path: str) -> bool:
@@ -139,7 +177,18 @@ def _pyproject_declares_a_package(path: str) -> bool:
     return "[project]" in content or "[tool.poetry]" in content
 
 
-def _run_pip_install(python_exe: str, args: list[str], timeout: int) -> tuple[bool, str]:
+def _run_pip_install(
+    python_exe: str, args: list[str], timeout: int, era_date: str | None = None, meta_out: list | None = None,
+) -> tuple[bool, str]:
+    """pip install; with lever era_resolve on it is resolved as of `era_date` (see era.py) and the
+    per-install record is appended to `meta_out`."""
+    from . import era
+
+    if era.enabled():
+        ok, log, meta = era.pip_install(python_exe, args, era_date, timeout)
+        if meta_out is not None:
+            meta_out.append(dict(meta, args=[a for a in args][:3]))
+        return ok, log
     try:
         completed = subprocess.run(
             [python_exe, "-m", "pip", "install", *args],
@@ -154,46 +203,183 @@ def _run_pip_install(python_exe: str, args: list[str], timeout: int) -> tuple[bo
     return completed.returncode == 0, completed.stdout + completed.stderr
 
 
+def _environment_yml_pip_specs(path: str) -> list[str]:
+    """Pip-installable version specs extracted from a conda environment.yml:
+    its own `pip:` sub-list (already valid pip syntax) plus top-level
+    `name=version` conda deps rewritten as `name==version`, best-effort --
+    TASK_version_decay_diagnosis.md Part B. A dep with no explicit
+    version, or a build-string/channel spec (`name=version=build`) this
+    doesn't try to translate, is skipped rather than guessed. `python`
+    itself is skipped (the interpreter, not an installable package -- a
+    mismatch there is a structural limit of this tool's venvs, see
+    repo_last_commit_date's docstring and the task's own bucket 3), and so
+    is `pip` -- found for real pinning this against ipython_ferretmagic's
+    own binder/environment.yml: downgrading the *running* pip to its
+    conda-pinned 2019 version (`pip=19.3.1`) breaks pip's own internals on
+    a modern Python (`No module named 'distutils'`, removed in 3.12),
+    silently failing every install attempted after it in the same batch.
+    Never raises: a malformed or unreadable file comes back as [].
+    """
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            data = yaml.safe_load(f)
+    except (OSError, yaml.YAMLError):
+        return []
+    if not isinstance(data, dict):
+        return []
+
+    specs: list[str] = []
+    for dep in data.get("dependencies") or []:
+        if isinstance(dep, str):
+            parts = dep.split("=")
+            if len(parts) == 2 and parts[0] and parts[1] and parts[0].lower() not in ("python", "pip"):
+                specs.append(f"{parts[0]}=={parts[1]}")
+        elif isinstance(dep, dict):
+            for pip_dep in dep.get("pip") or []:
+                if isinstance(pip_dep, str):
+                    specs.append(pip_dep)
+    return specs
+
+
+POSTBUILD_TIMEOUT = 600
+_POSTBUILD_CANDIDATES = (("binder", "postBuild"), (".binder", "postBuild"), ("postBuild",))
+
+
+def find_postbuild(repo_root: str) -> str | None:
+    """repo2docker's `postBuild` hook: `binder/postBuild`, else
+    `.binder/postBuild`, else `postBuild` at the root. Absolute path or None."""
+    for parts in _POSTBUILD_CANDIDATES:
+        candidate = os.path.join(repo_root, *parts)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def run_postbuild(
+    repo_root: str, python_exe: str, home_dir: str, timeout: int = POSTBUILD_TIMEOUT,
+) -> dict:
+    """TASK_prepilot_fixes.md #4: run the repo's `postBuild` script after the
+    environment is built, as repo2docker does -- several repos finish their
+    setup there (extension enables, data fetches, activation variables).
+
+    Honest, contained, never fatal: the script runs with the repair
+    environment's interpreter first on PATH, from the repo copy's root, with
+    HOME pointed at a throwaway directory so anything it writes under $HOME
+    stays inside this run. It is still arbitrary repo-supplied shell code
+    running on the host (the same trust as the repo's notebooks and pip
+    installs; the container runtime is where this belongs long-term), so the
+    caller can switch it off, and a failure or timeout is RECORDED, not
+    raised -- repos written for Binder's image (absolute /srv/conda paths,
+    apt-get) will often fail here, and that is reported rather than hidden.
+
+    Returns {found, ran, ok, path, returncode, log_tail}.
+    """
+    script = find_postbuild(repo_root)
+    if script is None:
+        return {"found": False, "ran": False, "ok": False, "path": "", "returncode": None, "log_tail": ""}
+
+    rel = os.path.relpath(script, repo_root)
+    bin_dir = os.path.dirname(os.path.abspath(python_exe))
+    env = dict(os.environ)
+    env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
+    env["HOME"] = home_dir
+    if os.path.isfile(os.path.join(os.path.dirname(bin_dir), "pyvenv.cfg")):
+        env["VIRTUAL_ENV"] = os.path.dirname(bin_dir)
+    os.makedirs(home_dir, exist_ok=True)
+
+    try:
+        completed = run_group(
+            ["bash", script], text=True, encoding="utf-8", errors="replace",
+            timeout=timeout, cwd=repo_root, env=env,
+        )
+    except subprocess.TimeoutExpired as exc:
+        tail = ((exc.stdout or "") + (exc.stderr or ""))[-1000:] if isinstance(exc.stdout, str) else ""
+        return {"found": True, "ran": True, "ok": False, "path": rel, "returncode": None,
+                "log_tail": f"postBuild timed out after {timeout}s and was killed\n{tail}"}
+    except OSError as exc:
+        return {"found": True, "ran": False, "ok": False, "path": rel, "returncode": None,
+                "log_tail": f"could not run postBuild: {exc}"}
+
+    return {
+        "found": True, "ran": True, "ok": completed.returncode == 0, "path": rel,
+        "returncode": completed.returncode,
+        "log_tail": (completed.stdout + completed.stderr)[-1000:],
+    }
+
+
 def _install_dependencies(
-    python_exe: str, repo_path: str, found: list[str], timeout: int
+    python_exe: str, repo_path: str, found: list[str], timeout: int,
+    era_date: str | None = None, era_meta_out: list | None = None,
 ) -> tuple[bool, str, str]:
-    """Install from the highest-priority *installable* format found.
+    """Install from *every* recognised, installable declared-dependency
+    format found, not just the first -- TASK_version_decay_diagnosis.md
+    Part B: a package-declaring setup.py/pyproject.toml (installs the
+    repo's own package) and a pinned requirements.txt/environment.yml
+    (installs its third-party dependency stack) answer different
+    questions and aren't mutually exclusive; stopping at the first match
+    silently skipped the other.
 
     Not every declared-dependency format is pip-installable on its own:
-    requirements.txt and a package-declaring pyproject.toml/setup.py are;
-    environment.yml (conda) and Pipfile (pipenv) are not, without tooling
-    this project doesn't carry. Returns (ok, log, which_file_was_used) --
-    `which_file_was_used` is "" if nothing was found or nothing found was
-    installable, which is reported honestly, not silently ignored or
+    requirements.txt, a package-declaring pyproject.toml/setup.py, and
+    environment.yml's own pip-expressible entries are; a conda-only pin
+    (no PyPI equivalent, e.g. pyferret) and Pipfile (no tooling this
+    project carries) are not. Returns (ok, log, which_files_were_used) --
+    `which_files_were_used` is "" if nothing was found or nothing found
+    was installable, which is reported honestly, not silently ignored or
     treated as a hard failure (a repo without a recognisable dependency
     file may still run fine, or may fail with a missing-dependency error --
-    that's real data either way, per the task's own guidance).
+    that's real data either way, per the task's own guidance). `ok` is
+    True as soon as at least one attempted install succeeds -- an old,
+    conda-only pin failing (pyferret, say) is expected, not a reason to
+    call the whole setup a failure when e.g. numpy/pandas did install.
     """
     if not found:
         return True, "no dependency declaration files found; nothing to install", ""
 
+    any_attempted = False
+    any_ok = False
+    used: list[str] = []
+    logs: list[str] = []
+
     for name in found:
         full = os.path.join(repo_path, name)
+        basename = os.path.basename(name)
 
-        if name == "requirements.txt":
-            ok, log = _run_pip_install(python_exe, ["-r", full], timeout)
-            return ok, log, name
+        if basename == "requirements.txt":
+            any_attempted = True
+            ok, log = _run_pip_install(python_exe, ["-r", full], timeout, era_date, era_meta_out)
+            any_ok = any_ok or ok
+            used.append(name)
+            logs.append(f"{name}: {'ok' if ok else 'FAILED'}\n{log}")
 
-        if name in ("pyproject.toml", "setup.py"):
-            if name == "pyproject.toml" and not _pyproject_declares_a_package(full):
-                continue  # tool-config-only; not installable, try the next candidate
-            ok, log = _run_pip_install(python_exe, [repo_path], timeout)
-            return ok, log, name
+        elif basename in ("pyproject.toml", "setup.py"):
+            if basename == "pyproject.toml" and not _pyproject_declares_a_package(full):
+                continue  # tool-config-only; not installable
+            any_attempted = True
+            ok, log = _run_pip_install(python_exe, [os.path.dirname(full)], timeout, era_date, era_meta_out)
+            any_ok = any_ok or ok
+            used.append(name)
+            logs.append(f"{name}: {'ok' if ok else 'FAILED'}\n{log}")
 
-        # environment.yml / Pipfile: recognised but not pip-installable here.
-        continue
+        elif basename == "environment.yml":
+            specs = _environment_yml_pip_specs(full)
+            if not specs:
+                logs.append(f"{name}: no pip-expressible entries found (conda-only pins, e.g. pyferret)")
+                continue
+            any_attempted = True
+            used.append(name)
+            for spec in specs:
+                ok, log = _run_pip_install(python_exe, [spec], timeout, era_date, era_meta_out)
+                any_ok = any_ok or ok
+                logs.append(f"{name} -> {spec}: {'ok' if ok else 'FAILED'}\n{log}")
 
-    return (
-        True,
-        f"found {found} but none are pip-installable without extra tooling "
-        "(conda/pipenv); skipped installation",
-        "",
-    )
+        else:
+            # Pipfile: recognised but not pip-installable here.
+            logs.append(f"{name}: not pip-installable without extra tooling (pipenv); skipped")
+
+    if not any_attempted:
+        return True, "\n---\n".join(logs) or f"found {found} but none are pip-installable here", ""
+    return any_ok, "\n---\n".join(logs), ", ".join(used)
 
 
 def _empty_summary() -> dict:

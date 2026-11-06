@@ -27,7 +27,10 @@ class TestRunTarget(unittest.TestCase):
     def test_wraps_run_project_as_a_plain_dict(self, mock_run):
         mock_run.return_value = RunResult(ok=False, returncode=1, stdout="", stderr="boom")
         result = run_target("some/path.py", python_exe="/fake/python", timeout=30)
-        self.assertEqual(result, {"ok": False, "returncode": 1, "stdout": "", "stderr": "boom"})
+        self.assertEqual(
+            result, {"ok": False, "returncode": 1, "stdout": "", "stderr": "boom", "cwd": "", "cwd_source": "",
+                     "progress": "", "stuck_cell": ""}
+        )
         mock_run.assert_called_once_with("some/path.py", timeout=30, python_exe="/fake/python")
 
 
@@ -80,11 +83,46 @@ class TestInstallPackage(unittest.TestCase):
     @patch("repair_tool.agent_tools.apply_module.apply", return_value=(True, "Successfully installed seaborn"))
     def test_wraps_apply_with_an_install_proposal(self, mock_apply):
         result = install_package("seaborn", "/fake/python")
-        self.assertEqual(result, {"ok": True, "log": "Successfully installed seaborn"})
+        self.assertEqual(
+            result,
+            {"ok": True, "log": "Successfully installed seaborn", "resolved_package": "seaborn", "version_source": "unconstrained"},
+        )
         proposal = mock_apply.call_args.args[0]
         self.assertEqual(proposal.kind, "install")
         self.assertEqual(proposal.package, "seaborn")
         self.assertEqual(mock_apply.call_args.args[1], "/fake/python")
+
+    @patch("repair_tool.agent_tools.apply_module.apply", return_value=(True, "ok"))
+    def test_no_era_cutoff_date_leaves_the_package_spec_unconstrained(self, mock_apply):
+        """TASK_version_decay_diagnosis.md Part B: single-file mode (no
+        repo context) must behave exactly as before -- no era-capping."""
+        install_package("seaborn", "/fake/python", era_cutoff_date=None)
+        self.assertEqual(mock_apply.call_args.args[0].package, "seaborn")
+
+    @patch("repair_tool.agent_tools.apply_module.apply", return_value=(True, "ok"))
+    def test_an_already_constrained_package_is_never_era_capped(self, mock_apply):
+        """The model's own explicit choice (e.g. a reactive 'pin older
+        after a new error') must never be overridden by era-capping."""
+        with patch("repair_tool.agent_tools.pypi.latest_version_as_of") as mock_era:
+            install_package("numpy<1.24", "/fake/python", era_cutoff_date="2019-05-01")
+        mock_era.assert_not_called()
+        self.assertEqual(mock_apply.call_args.args[0].package, "numpy<1.24")
+
+    @patch("repair_tool.agent_tools.apply_module.apply", return_value=(True, "ok"))
+    @patch("repair_tool.agent_tools.pypi.latest_version_as_of", return_value="1.17.3")
+    def test_an_era_cutoff_date_caps_an_unconstrained_package_to_its_era_version(self, mock_era, mock_apply):
+        result = install_package("numpy", "/fake/python", era_cutoff_date="2019-10-01")
+        mock_era.assert_called_once_with("numpy", "2019-10-01")
+        self.assertEqual(mock_apply.call_args.args[0].package, "numpy==1.17.3")
+        self.assertEqual(result["resolved_package"], "numpy==1.17.3")
+        self.assertEqual(result["version_source"], "era_capped")
+
+    @patch("repair_tool.agent_tools.apply_module.apply", return_value=(True, "ok"))
+    @patch("repair_tool.agent_tools.pypi.latest_version_as_of", return_value=None)
+    def test_falls_back_to_unconstrained_when_no_era_version_can_be_resolved(self, mock_era, mock_apply):
+        result = install_package("some_pkg", "/fake/python", era_cutoff_date="2019-10-01")
+        self.assertEqual(mock_apply.call_args.args[0].package, "some_pkg")
+        self.assertEqual(result["version_source"], "unconstrained")
 
 
 class TestEditCode(unittest.TestCase):

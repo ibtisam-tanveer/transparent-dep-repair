@@ -13,6 +13,8 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
+from .proc import run_group
+
 
 @dataclass
 class RunResult:
@@ -22,14 +24,32 @@ class RunResult:
     returncode: int
     stdout: str
     stderr: str
+    # TASK_prepilot_fixes.md #3: the working directory the run actually used
+    # and why ("file_dir" by default; see workdir.py). Empty on results that
+    # never reached a run (missing file etc.).
+    cwd: str = ""
+    cwd_source: str = ""
+    # TASK_next_steps.md step 1: for a failed NOTEBOOK run, how far it got --
+    # "last started code cell K of N" -- and the head of the source of that
+    # cell, so "timed out" can be told apart as "stuck in cell 2 of 40" vs
+    # "ran 38 cells then a slow one". Empty for scripts / passing runs.
+    progress: str = ""
+    stuck_cell: str = ""
 
 
-def run_project(path: str, timeout: int = 60, python_exe: str | None = None) -> RunResult:
+def run_project(
+    path: str, timeout: int = 60, python_exe: str | None = None, repo_root: str | None = None,
+) -> RunResult:
     """Run the Python file at `path` in a subprocess and capture the result.
 
     `python_exe` selects the interpreter to run it with (e.g. an isolated
     venv's python from Phase 3's venv_manager); defaults to the current
     interpreter, so Phase 1/2 callers are unaffected.
+
+    `repo_root` (set when running inside a whole-repo copy) enables working-
+    directory resolution: if the run fails importing a module the repo itself
+    provides, it is retried from the directory the file's relative sys.path
+    entries expect -- see workdir.py.
 
     Never raises: a missing file, a timeout, or a crashing target all come
     back as a failed RunResult instead of propagating an exception.
@@ -42,23 +62,48 @@ def run_project(path: str, timeout: int = 60, python_exe: str | None = None) -> 
             stderr=f"FileNotFoundError: no such file: {path!r}",
         )
 
+    if repo_root:
+        from . import workdir
+
+        return workdir.run_with_resolution(
+            path, repo_root, lambda cwd: _run_once(path, timeout, python_exe, cwd)
+        )
+    return _run_once(path, timeout, python_exe, None)
+
+
+def _run_once(path: str, timeout: int, python_exe: str | None, cwd: str | None) -> RunResult:
+    """One execution of `path` from `cwd` (None = the file's own directory)."""
+
     # The only branch notebook support adds here -- see NOTEBOOK_SUPPORT_TASK.md.
     # Everything below is the unchanged .py subprocess path.
     if path.endswith(".ipynb"):
         from .notebook import run_notebook
 
-        return run_notebook(path, timeout=timeout, python_exe=python_exe)
+        if cwd is None:
+            return run_notebook(path, timeout=timeout, python_exe=python_exe)
+        return run_notebook(path, timeout=timeout, python_exe=python_exe, cwd=cwd)
 
     executable = python_exe or sys.executable
 
+    # TASK_fix_repo_execution.md: run with cwd set to the file's own
+    # directory, matching nbconvert's default behaviour for notebooks --
+    # a relative-path data read (not just a sibling import, which Python
+    # already resolves via sys.path[0]) needs this to behave like a real
+    # user running the file in place.
     try:
-        completed = subprocess.run(
+        # run_group: own process group, killed as a whole on timeout, so a
+        # script that spawned children can't outlive its budget or hold the
+        # output pipes open (TASK_prepilot_fixes.md #1).
+        from . import condaenv
+
+        completed = run_group(
             [executable, path],
-            capture_output=True,
+            env=condaenv.activation_env(executable),
             text=True,
             encoding="utf-8",
             errors="replace",
             timeout=timeout,
+            cwd=cwd or os.path.dirname(os.path.abspath(path)),
         )
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout or ""

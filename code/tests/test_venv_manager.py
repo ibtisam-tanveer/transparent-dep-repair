@@ -7,6 +7,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from repair_tool import venv_manager
+from repair_tool.runner import run_project
 
 
 class TestVenvDirFor(unittest.TestCase):
@@ -86,7 +87,70 @@ class TestFreshVenvAndWorkspace(unittest.TestCase):
             shutil.rmtree(source_dir, ignore_errors=True)
 
 
-class TestRepoFileWorkspaceCopy(unittest.TestCase):
+class TestFreshRepoCopy(unittest.TestCase):
+    """TASK_fix_repo_execution.md Part A: a whole-repo copy, not a
+    stripped single-file workspace -- a local sibling import or a
+    relative-path data read needs its sibling files physically present."""
+
+    def setUp(self):
+        self.tmp_root = tempfile.mkdtemp()
+        self.repo_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_root, ignore_errors=True)
+        shutil.rmtree(self.repo_dir, ignore_errors=True)
+
+    def test_copies_the_whole_tree_not_just_one_file(self):
+        nested = os.path.join(self.repo_dir, "sub", "dir")
+        os.makedirs(nested)
+        with open(os.path.join(nested, "a.py"), "w") as f:
+            f.write("print('a')\n")
+        with open(os.path.join(self.repo_dir, "sibling_helper.py"), "w") as f:
+            f.write("def greet():\n    return 'hi'\n")
+
+        copy_root = venv_manager.get_fresh_repo_copy(self.repo_dir, self.tmp_root)
+
+        self.assertTrue(copy_root.startswith(self.tmp_root))
+        self.assertTrue(os.path.isfile(os.path.join(copy_root, "sub", "dir", "a.py")))
+        self.assertTrue(os.path.isfile(os.path.join(copy_root, "sibling_helper.py")))
+
+    def test_sibling_import_resolves_under_a_fresh_repo_copy_but_a_real_missing_package_still_fails(self):
+        """The decisive proof for Part A: under the old per-file-stripped
+        workspace, `import sibling_helper` would raise ModuleNotFoundError
+        even though the file is right there in the real repo -- a false
+        failure the harness itself caused. Under a whole-repo copy it
+        resolves, while a genuinely missing PyPI package is still
+        correctly detected."""
+        with open(os.path.join(self.repo_dir, "sibling_helper.py"), "w") as f:
+            f.write("def greet():\n    return 'hi'\n")
+        with open(os.path.join(self.repo_dir, "uses_sibling.py"), "w") as f:
+            f.write("import sibling_helper\nprint(sibling_helper.greet())\n")
+        with open(os.path.join(self.repo_dir, "uses_fake_package.py"), "w") as f:
+            f.write("import a_totally_fake_nonexistent_package_xyz\n")
+
+        copy_root = venv_manager.get_fresh_repo_copy(self.repo_dir, self.tmp_root)
+
+        sibling_result = run_project(os.path.join(copy_root, "uses_sibling.py"))
+        self.assertTrue(sibling_result.ok, msg=sibling_result.stderr)
+        self.assertIn("hi", sibling_result.stdout)
+
+        fake_result = run_project(os.path.join(copy_root, "uses_fake_package.py"))
+        self.assertFalse(fake_result.ok)
+        self.assertIn("No module named 'a_totally_fake_nonexistent_package_xyz'", fake_result.stderr)
+
+    def test_fresh_copy_never_touches_the_original_repo(self):
+        with open(os.path.join(self.repo_dir, "a.py"), "w") as f:
+            f.write("original\n")
+
+        copy_root = venv_manager.get_fresh_repo_copy(self.repo_dir, self.tmp_root)
+        with open(os.path.join(copy_root, "a.py"), "w") as f:
+            f.write("edited by the agent\n")
+
+        with open(os.path.join(self.repo_dir, "a.py")) as f:
+            self.assertEqual(f.read(), "original\n")
+
+
+class TestPersistentRepoCopy(unittest.TestCase):
     def setUp(self):
         self.venv_dir = tempfile.mkdtemp()
         self.repo_dir = tempfile.mkdtemp()
@@ -95,47 +159,28 @@ class TestRepoFileWorkspaceCopy(unittest.TestCase):
         shutil.rmtree(self.venv_dir, ignore_errors=True)
         shutil.rmtree(self.repo_dir, ignore_errors=True)
 
-    def test_copies_a_file_preserving_its_relative_path(self):
-        nested = os.path.join(self.repo_dir, "sub", "dir")
-        os.makedirs(nested)
-        with open(os.path.join(nested, "a.py"), "w") as f:
-            f.write("print('a')\n")
-
-        copy_path = venv_manager.get_repo_file_workspace_copy(self.venv_dir, self.repo_dir, "sub/dir/a.py")
-
-        self.assertTrue(os.path.isfile(copy_path))
-        self.assertTrue(copy_path.startswith(self.venv_dir))
-        with open(copy_path) as f:
-            self.assertEqual(f.read(), "print('a')\n")
-
-    def test_two_files_with_the_same_basename_in_different_dirs_do_not_collide(self):
-        for sub in ("pkg_a", "pkg_b"):
-            os.makedirs(os.path.join(self.repo_dir, sub))
-            with open(os.path.join(self.repo_dir, sub, "main.py"), "w") as f:
-                f.write(f"print('{sub}')\n")
-
-        copy_a = venv_manager.get_repo_file_workspace_copy(self.venv_dir, self.repo_dir, "pkg_a/main.py")
-        copy_b = venv_manager.get_repo_file_workspace_copy(self.venv_dir, self.repo_dir, "pkg_b/main.py")
-
-        self.assertNotEqual(copy_a, copy_b)
-        with open(copy_a) as f:
-            self.assertIn("pkg_a", f.read())
-        with open(copy_b) as f:
-            self.assertIn("pkg_b", f.read())
-
-    def test_reuses_an_existing_copy_rather_than_overwriting_edits(self):
+    def test_copies_the_whole_tree(self):
         os.makedirs(os.path.join(self.repo_dir, "sub"))
         with open(os.path.join(self.repo_dir, "sub", "a.py"), "w") as f:
+            f.write("print('a')\n")
+
+        copy_root = venv_manager.get_persistent_repo_copy(self.repo_dir, self.venv_dir)
+
+        self.assertTrue(copy_root.startswith(self.venv_dir))
+        self.assertTrue(os.path.isfile(os.path.join(copy_root, "sub", "a.py")))
+
+    def test_reuses_an_existing_copy_rather_than_overwriting_edits(self):
+        with open(os.path.join(self.repo_dir, "a.py"), "w") as f:
             f.write("original\n")
 
-        copy_path = venv_manager.get_repo_file_workspace_copy(self.venv_dir, self.repo_dir, "sub/a.py")
-        with open(copy_path, "w") as f:
+        copy_root = venv_manager.get_persistent_repo_copy(self.repo_dir, self.venv_dir)
+        with open(os.path.join(copy_root, "a.py"), "w") as f:
             f.write("edited by the agent\n")
 
-        copy_path_again = venv_manager.get_repo_file_workspace_copy(self.venv_dir, self.repo_dir, "sub/a.py")
+        copy_root_again = venv_manager.get_persistent_repo_copy(self.repo_dir, self.venv_dir)
 
-        self.assertEqual(copy_path, copy_path_again)
-        with open(copy_path_again) as f:
+        self.assertEqual(copy_root, copy_root_again)
+        with open(os.path.join(copy_root_again, "a.py")) as f:
             self.assertEqual(f.read(), "edited by the agent\n")
 
 
