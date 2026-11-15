@@ -44,7 +44,10 @@ class TestAgentRepairOffline(unittest.TestCase):
             response = MagicMock()
             response.choices = empty
             mock_openai_cls.return_value.chat.completions.create.side_effect = [response]
-            result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
+            # A fake key, like every other test here: without one (CI, a fresh clone) agent_repair stops
+            # before calling the model and this test would not reach the code it is about.
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake-for-test"}, clear=True):
+                result = agent_repair(os.path.join(EXAMPLES, "01_missing_package.py"))
             self.assertFalse(result.fixed)
             self.assertEqual(result.stop_reason, "error")
             self.assertIn("no choices", result.error)
