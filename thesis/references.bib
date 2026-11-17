@@ -2,6 +2,8 @@
 % Every entry below was checked against the publisher/registry record (arXiv API, Crossref,
 % Semantic Scholar) while setting up the thesis. Anything NOT verified carries a "% TODO verify" line.
 
+% Figures quoted in Chapter 1 (863,878 attempted executions; 24.11% ran without errors; 4.03% same results; 29.23% import errors)
+% were checked on 2026-11-17 in the author-hosted PDF of the MSR 2019 paper. TODO verify against the IEEE-published version.
 @inproceedings{pimentel2019large,
   author    = {Pimentel, Jo{\~a}o Felipe and Murta, Leonardo and Braganholo, Vanessa and Freire, Juliana},
   title     = {A Large-Scale Study About Quality and Reproducibility of {Jupyter} Notebooks},
@@ -12,6 +14,8 @@
   doi       = {10.1109/MSR.2019.00077}
 }
 
+% Verified 2026-11-17 on the GigaScience page: published 11 January 2024, vol. 13, article giad113. The same study was circulated
+% as the arXiv preprint 2308.07333 (August 2023) with identical abstract figures. Cite the 2024 journal version; the data are the "2023 run".
 @article{samuel2024computational,
   author  = {Samuel, Sheeba and Mietchen, Daniel},
   title   = {Computational reproducibility of {Jupyter} notebooks from biomedical publications},
@@ -20,8 +24,6 @@
   year    = {2024},
   pages   = {giad113},
   doi     = {10.1093/gigascience/giad113}
-  % The study was first circulated as a 2023 preprint; the journal version is 2024 (vol. 13).
-  % TODO: author to confirm which year the thesis should cite (the data set is called "2023 corpus" in the repository).
 }
 
 @inproceedings{horton2019dockerizeme,
@@ -34,6 +36,7 @@
   doi       = {10.1109/ICSE.2019.00047}
 }
 
+% The tool is called PyEGo in the paper (as in the task description); only the title is shown by Crossref.
 @inproceedings{ye2022pyego,
   author    = {Ye, Hongjie and Chen, Wei and Dou, Wensheng and Wu, Guoquan and Wei, Jun},
   title     = {Knowledge-based environment dependency inference for {Python} programs},
@@ -42,9 +45,9 @@
   pages     = {1245--1256},
   publisher = {ACM},
   doi       = {10.1145/3510003.3510127}
-  % The tool is called PyEGo in the paper (as in the task description); only the title is shown by Crossref.
 }
 
+% TODO verify: that this paper is the tool the advisor's outline calls "PyCRE" (name taken from the outline; the title does not contain it).
 @inproceedings{cheng2022pycre,
   author    = {Cheng, Wei and Zhu, Xiangrong and Hu, Wei},
   title     = {Conflict-aware inference of {Python} compatible runtime environments with domain knowledge graph},
@@ -53,9 +56,9 @@
   pages     = {451--461},
   publisher = {ACM},
   doi       = {10.1145/3510003.3510078}
-  % TODO verify: that this paper is the tool the advisor's outline calls "PyCRE" (name taken from the outline; the title does not contain it).
 }
 
+% The tool is called ReadPyE. Mapping verified: the reference list of PLLM (arXiv:2501.16191, ref. [10]) cites exactly this paper for ReadPyE.
 @article{cheng2024revisiting,
   author  = {Cheng, Wei and Hu, Wei and Ma, Xiaoxing},
   title   = {Revisiting Knowledge-Based Inference of {Python} Runtime Environments: A Realistic and Adaptive Approach},
@@ -65,9 +68,10 @@
   year    = {2024},
   pages   = {258--279},
   doi     = {10.1109/TSE.2023.3346474}
-  % The tool is called ReadPyE. Mapping verified: the reference list of PLLM (arXiv:2501.16191, ref. [10]) cites exactly this paper for ReadPyE.
 }
 
+% The tool is called SnifferDog in the task description.
+% TODO verify: that the tool name "SnifferDog" appears in this paper (arXiv/Crossref confirm title, authors, venue, pages).
 @inproceedings{wang2021sniffer,
   author    = {Wang, Jiawei and Li, Li and Zeller, Andreas},
   title     = {Restoring Execution Environments of {Jupyter} Notebooks},
@@ -77,43 +81,41 @@
   publisher = {IEEE},
   doi       = {10.1109/ICSE43902.2021.00144},
   note      = {arXiv:2103.02959}
-  % The tool is called SnifferDog in the task description.
-  % TODO verify: that the tool name "SnifferDog" appears in this paper (arXiv/Crossref confirm title, authors, venue, pages).
 }
 
+% Preprint (v2, 16 Oct 2025). The vision document says it was accepted at the AgenticSE workshop at ASE 2025; not verified in the paper text.
+% TODO verify: workshop acceptance / whether a peer-reviewed version exists before submission.
 @misc{bartlett2025lastdependency,
   author       = {Bartlett, Antony and Liem, Cynthia and Panichella, Annibale},
   title        = {The Last Dependency Crusade: Solving {Python} Dependency Conflicts with {LLMs}},
   howpublished = {arXiv preprint arXiv:2501.16191},
   year         = {2025}
-  % Preprint (v2, 16 Oct 2025). The vision document says it was accepted at the AgenticSE workshop @ ASE 2025; not verified in the paper text.
-  % TODO verify: workshop acceptance / whether a peer-reviewed version exists before submission.
 }
 
+% Verified in the paper (v4): 39th NeurIPS (2025) conference paper; 86.0% success on 420 Python repositories WITH unit tests; 'first LLM-based agent' is the authors' own claim.
+% NOT verified: the 'spotlight' status stated in the research note -- do not state it. TODO verify if wanted.
 @misc{hu2025repo2run,
   author       = {Hu, Ruida and Peng, Chao and Wang, Xinchen and Xu, Junjielong and Gao, Cuiyun},
   title        = {{Repo2Run}: Automated Building Executable Environment for Code Repository at Scale},
   howpublished = {arXiv preprint arXiv:2502.13681},
   year         = {2025}
-  % Verified in the paper (v4): 39th NeurIPS (2025) conference paper; 86.0% success on 420 Python repositories WITH unit tests; 'first LLM-based agent' is the authors' own claim.
-  % NOT verified: the 'spotlight' status stated in the research note -- do not state it. TODO verify if wanted.
 }
 
+% The PDF header says 'Published as a conference paper at ICLR 2025'; the vision document says workshop DL4C at ICLR 2025.
+% TODO verify the exact venue (main conference vs. workshop) before citing it as peer-reviewed.
 @misc{eliseeva2025envbench,
   author       = {Eliseeva, Aleksandra and Kovrigin, Alexander and Kholkin, Ilia and Bogomolov, Egor and Zharov, Yaroslav},
   title        = {{EnvBench}: A Benchmark for Automated Environment Setup},
   howpublished = {arXiv preprint arXiv:2503.14443},
   year         = {2025}
-  % The PDF header says 'Published as a conference paper at ICLR 2025'; the vision document says workshop DL4C @ ICLR 2025.
-  % TODO verify the exact venue (main conference vs. workshop) before citing it as peer-reviewed.
 }
 
+% The research note quotes 94% / REQBench 2,095 cases / PyEGo ~37%; these were not verified. TODO verify before use.
 @misc{lei2025pcreq,
   author       = {Lei, Huashan and Xiao, Guanping and Liu, Yepang and Zheng, Zheng},
   title        = {{PCREQ}: Automated Inference of Compatible Requirements for {Python} Third-party Library Upgrades},
   howpublished = {arXiv preprint arXiv:2508.02023},
   year         = {2025}
-  % The research note quotes 94% / REQBench 2,095 cases / PyEGo ~37%; these were not verified. TODO verify before use.
 }
 
 @inproceedings{zhu2021relancer,
@@ -126,6 +128,7 @@
   doi       = {10.1109/ASE51524.2021.9678889}
 }
 
+% Verified in the arXiv PDF (2602.07195v2): ISSTA 2026, article ISSTA075, DOI as given.
 @article{jin2026modernization,
   author  = {Jin, Bihui and Wang, Kaiyuan and Nie, Pengyu},
   title   = {Automated Modernization of Machine Learning Engineering Notebooks for Reproducibility},
@@ -135,7 +138,6 @@
   year    = {2026},
   pages   = {ISSTA075},
   doi     = {10.1145/3832166}
-  % Verified in the arXiv PDF (2602.07195v2): ISSTA 2026, article ISSTA075, DOI as given.
 }
 
 @inproceedings{noller2022trust,
@@ -148,6 +150,8 @@
   doi       = {10.1145/3510003.3510040}
 }
 
+% Crossref returns only the short title "Trust in Automated Software Repair"; the full title is taken from the vision document.
+% TODO verify the full title and the volume number against the Springer page.
 @inproceedings{ryan2019trust,
   author    = {Ryan, Tyler J. and Alarcon, Gene M. and Walter, Charles and Gamble, Rose and Jessup, Sarah A. and Capiola, August and Pfahler, Marc D.},
   title     = {Trust in Automated Software Repair: The Effects of Repair Source, Transparency, and Programmer Experience on Perceived Trustworthiness and Trust},
@@ -158,8 +162,6 @@
   pages     = {452--470},
   publisher = {Springer},
   doi       = {10.1007/978-3-030-22351-9_31}
-  % Crossref returns only the short title "Trust in Automated Software Repair"; the full title is taken from the vision document.
-  % TODO verify the full title and the volume number against the Springer page.
 }
 
 @inproceedings{williams2024bloomberg,
@@ -172,12 +174,12 @@
   doi       = {10.1145/3639477.3639756}
 }
 
+% Preprint (v3). The vision document says it appeared at the XLLM-Reason-Plan workshop at COLM 2025; not verified. TODO verify.
 @misc{ye2025copilotlens,
   author       = {Ye, Runlong and Zhang, Zeling and Almazroua, Boushra and Liut, Michael},
   title        = {Beyond Autocomplete: Designing {CopilotLens} Towards Transparent and Explainable {AI} Coding Agents},
   howpublished = {arXiv preprint arXiv:2506.20062},
   year         = {2025}
-  % Preprint (v3). The vision document says it appeared at the XLLM-Reason-Plan workshop @ COLM 2025; not verified. TODO verify.
 }
 
 @inproceedings{wang2024trust,
