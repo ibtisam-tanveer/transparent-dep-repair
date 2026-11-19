@@ -1,0 +1,21 @@
+# Runtime image for the EnvBench evaluation (TASK_envbench_evaluation.md): the normal runtime image plus
+# a separate "pyright" environment holding Node.js and pyright, so EnvBench's own Python check
+# (`pyright --level error`, count the `reportMissingImports` diagnostics) can run inside the container,
+# offline, WITHOUT installing anything into the environment under repair.
+#
+# Build (once):   docker build --platform linux/amd64 -f docker/Dockerfile.envbench \
+#                   -t repair-tool-runtime-envbench:1-linux-amd64 docker/
+# Use:            REPAIR_TOOL_RUNTIME_IMAGE=repair-tool-runtime-envbench:1-linux-amd64 python evaluation/run_eval.py ...
+#
+# The pyright version is whatever pip resolves at build time (EnvBench's own image does the same: it installs the
+# current pyright unpinned); it is recorded in evaluation/samples/envbench_py_all.meta.json by envbench_prepare.py.
+FROM repair-tool-runtime:1-linux-amd64
+
+USER mambauser
+RUN micromamba create -y -n pyright -c conda-forge python=3.11 pip nodejs \
+ && /opt/conda/envs/pyright/bin/pip install --no-cache-dir pyright \
+ && /opt/conda/envs/pyright/bin/pyright --version \
+ && micromamba clean -a -y
+# pyright (the PyPI wrapper) downloads the npm package into the user's cache on first use; the --version call above
+# does that at build time, so containers started from this image never need the network for it.
+ENV PYRIGHT_BIN=/opt/conda/envs/pyright/bin/pyright

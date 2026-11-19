@@ -1,0 +1,14 @@
+{
+  "dataset": "EnvBench, Python subset (split python_baseline_failure)",
+  "paper": "Eliseeva et al., arXiv:2503.14443",
+  "source": "https://huggingface.co/datasets/JetBrains-Research/EnvBench",
+  "hf_revision": "d1e96e6b10335cad40ac7b4f709f46a2c579765a",
+  "code_repository": "https://github.com/JetBrains-Research/EnvBench",
+  "code_commit": "1ba2695018080df3a3606b100fc1dbfad96ea115",
+  "repositories": 329,
+  "expected_python_repositories": 329,
+  "list_sha256": "3e204dc13b28a5c84a0ea8d962a92ecaa7cf226585dd9d1071f46eeb964113ec",
+  "pyright_version": "pyright 1.1.414",
+  "check": "pyright <repo> --level error --outputjson --pythonpath <env python>; PASS = 0 reportMissingImports",
+  "csv": "evaluation/samples/envbench_py_all.csv"
+}

@@ -48,6 +48,14 @@ KERNEL_STACK_PIN = "ipykernel==6.16.2"
 # Notebook executor inside the container (see inproc_runner.py for why not a kernel).
 NOTEBOOK_EXECUTOR = "inproc"
 
+IMAGE_ENV = "REPAIR_TOOL_RUNTIME_IMAGE"
+# Evaluations whose target is slow by nature (EnvBench's pyright check over a whole repository) raise the per-run limit
+# of a target run (before the container scale is applied); unset = the unchanged 60 s.
+RUN_TIMEOUT_ENV = "REPAIR_TOOL_RUN_TIMEOUT"
+# Comma-separated repository-relative paths the agent may not edit (the EnvBench check file is a fixed checker, not
+# code under repair); unset = no restriction.
+NO_EDIT_ENV = "REPAIR_TOOL_NO_EDIT"
+
 IMAGE_BUILD_TIMEOUT = 3600
 SETUP_TIMEOUT = 7200
 _DOCKERFILE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docker")
@@ -106,7 +114,9 @@ class DockerRuntime:
         self.platform = platform
         self.timeout_scale = max(timeout_scale, 1.0)
         self.container_name = container_name or f"repair-tool-{os.getpid()}-{int(time.time())}"
-        self.image = image or image_tag(platform)
+        # REPAIR_TOOL_RUNTIME_IMAGE: another image built FROM the runtime image (the EnvBench evaluation adds pyright,
+        # code/docker/Dockerfile.envbench). Unset = the unchanged default.
+        self.image = image or os.environ.get(IMAGE_ENV) or image_tag(platform)
         self.image_id = ""
         self.python_exe = ""
         self.started = False
@@ -262,6 +272,7 @@ class DockerRuntime:
         return inner, outer
 
     def run_project(self, rel_path: str, timeout: int, python_exe: str | None = None) -> RunResult:
+        timeout = max(timeout, int(os.environ.get(RUN_TIMEOUT_ENV) or 0))
         inner, outer = self._run_timeouts(timeout)
         result = self.call("run_project", {
             "path": self.remote_path(rel_path), "timeout": inner,
@@ -307,7 +318,7 @@ class DockerRuntime:
             return result
 
         def _run(**_) -> dict:
-            result = asdict(self.run_project(rel_path, timeout=60, python_exe=state["python_exe"]))
+            result = asdict(self.run_project(rel_path, timeout=60, python_exe=state["python_exe"]))  # RUN_TIMEOUT_ENV may raise it
             state["last_run"] = None if result.get("ok") else result
             return _hint(result, str(result.get("stderr", "")))
 
@@ -334,6 +345,10 @@ class DockerRuntime:
             return _hint(result, str(result.get("log", "")))
 
         def _edit(**kw) -> dict:
+            if rel_path in [p.strip() for p in os.environ.get(NO_EDIT_ENV, "").split(",") if p.strip()]:
+                return {"ok": False, "refused": True, "refusal_reason": "protected_target",
+                        "log": f"Refused: {rel_path} is a fixed checker, not code under repair. Fix the environment "
+                               "(install packages, change the interpreter); the checker cannot be edited."}
             result = self.call("edit_code", {"edits": kw["edits"], "workspace_path": remote}, timeout=120)
             if "rpc_error" in result:
                 return {"ok": False, "log": f"ContainerError: {result['rpc_error']}"}
@@ -341,7 +356,7 @@ class DockerRuntime:
 
         def _downgrade(**kw) -> dict:
             package = kw["package"]
-            inner, _outer = self._run_timeouts(60)
+            inner, _outer = self._run_timeouts(max(60, int(os.environ.get(RUN_TIMEOUT_ENV) or 0)))
             budget = 1200
             result = self.call("downgrade_search", {
                 "package": package, "python_exe": state["python_exe"], "path": remote, "timeout": inner,

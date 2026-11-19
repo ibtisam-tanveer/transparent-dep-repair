@@ -174,6 +174,14 @@ def get_fresh_workspace_copy(target_path: str, tmp_root: str) -> str:
     return copy_path
 
 
+def _skip_dangling_symlinks(directory: str, names: list[str]) -> list[str]:
+    """copytree `ignore` callback: the symlinks in `directory` whose target does not exist. (Not
+    `ignore_dangling_symlinks=True`: it tests a RELATIVE link target against the current directory, so it would also
+    drop valid relative links.)"""
+    return [n for n in names
+            if os.path.islink(os.path.join(directory, n)) and not os.path.exists(os.path.join(directory, n))]
+
+
 def get_fresh_repo_copy(repo_path: str, tmp_root: str) -> str:
     """TASK_fix_repo_execution.md: a whole-repo copy under a caller-owned
     `tmp_root` (see get_fresh_venv_python) -- always a fresh copy of the
@@ -187,7 +195,9 @@ def get_fresh_repo_copy(repo_path: str, tmp_root: str) -> str:
     the GigaScience study this thesis's dataset comes from).
     """
     workspace_dir = os.path.join(tmp_root, "workspace")
-    shutil.copytree(repo_path, workspace_dir)
+    # A symlink that points nowhere (found in EnvBench's internetarchive/brozzler: `brozzler.svg`) must not abort the
+    # whole copy; valid links are followed exactly as before.
+    shutil.copytree(repo_path, workspace_dir, ignore=_skip_dangling_symlinks)
     return workspace_dir
 
 
@@ -197,7 +207,7 @@ def get_persistent_repo_copy(repo_path: str, venv_dir: str) -> str:
     get_workspace_copy's persistent-cache contract."""
     workspace_dir = os.path.join(venv_dir, "workspace")
     if not os.path.isdir(workspace_dir):
-        shutil.copytree(repo_path, workspace_dir)
+        shutil.copytree(repo_path, workspace_dir, ignore=_skip_dangling_symlinks)
     return workspace_dir
 
 

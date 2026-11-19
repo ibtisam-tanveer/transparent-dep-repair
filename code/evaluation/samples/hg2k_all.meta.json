@@ -1,0 +1,11 @@
+{
+  "dataset": "HG2.9K (DockerizeMe hard-gists)",
+  "source": "https://github.com/dockerizeme/dockerizeme",
+  "source_commit": "408f3fa3d36542d8fc1236ba1cac804de6f14b0c",
+  "gists": 2891,
+  "py3_parses": 1874,
+  "py3_syntax_error_likely_python2": 1017,
+  "parsed_with_python": "3.11.17 (runtime image)",
+  "list_sha256": "f83860a8b577ae4c324715b3af6828e63acbdf56bffc94fe2ab89d350cab2d06",
+  "csv": "evaluation/samples/hg2k_all.csv"
+}

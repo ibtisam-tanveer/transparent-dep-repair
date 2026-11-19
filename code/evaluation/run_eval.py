@@ -63,6 +63,7 @@ from repair_tool.diagnose import _find_exception_line
 from repair_tool import era as era_module
 from repair_tool import levers as levers_module
 from repair_tool.localmods import find_local_module
+from evaluation import envbench_check, envbench_source
 from evaluation.runtime_reasons import classify_runtime_reason
 from repair_tool.proc import REGISTRY_ENV, reap_registered, run_group
 from repair_tool.runtime import DEFAULT_PLATFORM, docker_available, remove_container
@@ -205,6 +206,35 @@ def clone_repo(clone_url: str, timeout: int = CLONE_TIMEOUT, full_history: bool 
         if attempt < CLONE_ATTEMPTS - 1:
             time.sleep(CLONE_RETRY_DELAYS_SECONDS[min(attempt, len(CLONE_RETRY_DELAYS_SECONDS) - 1)])
     return None, log + f" (after {CLONE_ATTEMPTS} attempts)"
+
+
+LOCAL_SOURCE_PREFIX = "local:"
+
+
+def obtain_source(clone_url: str, source_root: str = "", full_history: bool = False) -> tuple[str | None, str]:
+    """Where the code under repair comes from: a git remote (the default, `clone_repo`), a
+    `local:<relative dir>` entry -- a directory of a dataset that was downloaded beforehand (HG2.9K,
+    see HG2K_RESULTS.md), resolved under `source_root` and COPIED into a fresh temp dir, so the
+    dataset itself is never touched -- or a `pinned:<sha>:<github url>` entry (EnvBench, see
+    envbench_source.py). Same contract as clone_repo: never raises, (path | None, log)."""
+    if clone_url.startswith(envbench_source.PREFIX):
+        return envbench_source.obtain(clone_url)
+    if not clone_url.startswith(LOCAL_SOURCE_PREFIX):
+        return clone_repo(clone_url, full_history=full_history)
+    rel = clone_url[len(LOCAL_SOURCE_PREFIX):]
+    src = os.path.normpath(os.path.join(source_root or ".", rel))
+    root = os.path.realpath(source_root or ".")
+    if not os.path.realpath(src).startswith(root + os.sep):
+        return None, f"local source escapes the source root: {rel}"
+    if not os.path.isdir(src):
+        return None, f"local source not found: {src}"
+    tmpdir = tempfile.mkdtemp(prefix="repair_tool_eval_clone_")
+    try:
+        shutil.copytree(src, tmpdir, symlinks=False, dirs_exist_ok=True)
+    except OSError as exc:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        return None, f"could not copy local source: {exc}"
+    return tmpdir, "copied local source"
 
 
 def _read_jsonl_rows_tolerantly(path: str | None) -> list[dict]:
@@ -676,6 +706,7 @@ def run(
     platform: str = DEFAULT_PLATFORM,
     container_scale: float = 1.0,
     levers_spec: str = "",
+    source_root: str = "",
 ) -> None:
     active_levers = levers_module.parse(levers_spec)  # raises on a typo: never run a different experiment silently
     os.environ[levers_module.ENV] = levers_module.to_env_value(active_levers)
@@ -712,6 +743,7 @@ def run(
         "repair_interpreter": repair_interpreter,
         "run_postbuild": run_postbuild,
         "levers": levers_module.to_env_value(active_levers),
+        "source_root": source_root,
         "runtime": runtime,
         "platform": platform if runtime == "docker" else "",
         "container_scale": container_scale if runtime == "docker" else 1.0,
@@ -736,11 +768,17 @@ def run(
         paths. Returns (repository, rows, errored, llm_calls_used)."""
         failure_rows = by_repo[repository]
         clone_url = failure_rows[0]["clone_url"]
+        started = time.monotonic()
 
-        clone_path, clone_log = clone_repo(clone_url, full_history=levers_module.enabled(levers_module.ERA_DATE))
+        clone_path, clone_log = obtain_source(
+            clone_url, source_root, full_history=levers_module.enabled(levers_module.ERA_DATE)
+        )
         errored = False
         llm_calls_used = 0
         try:
+            if clone_path is not None and any(f["notebook_path"] == envbench_check.TARGET_NAME for f in failure_rows):
+                # EnvBench: the target is the benchmark's own check, placed in the repository root (envbench_check.py)
+                envbench_source.inject_check(clone_path)
             if clone_path is None:
                 rows = [{
                     "run_id": run_id, "repository": repository, "clone_url": clone_url,
@@ -797,6 +835,9 @@ def run(
             if clone_path is not None:
                 shutil.rmtree(clone_path, ignore_errors=True)
 
+        # wall-clock for this repo (clone + container + repair), on every row -- the cost side of an evaluation
+        for row in rows:
+            row.setdefault("repo_seconds", round(time.monotonic() - started, 1))
         return repository, rows, errored, llm_calls_used
 
     def record(repository: str, rows: list[dict], errored: bool, llm_calls_used: int) -> None:
@@ -923,6 +964,11 @@ def main() -> int:
              "repo-supplied shell code; it runs with a throwaway $HOME and is recorded, never fatal)",
     )
     parser.add_argument(
+        "--source-root", default="",
+        help="base directory for `local:<dir>` entries in the failures CSV (a dataset downloaded beforehand, "
+             "e.g. the HG2.9K gists); such entries are copied, never modified",
+    )
+    parser.add_argument(
         "--workers", type=int, default=1,
         help="TASK_agent_stopping.md #4: process this many repos concurrently (each already "
              "isolated in its own clone + subprocess). Start small (2-4) and confirm the LLM "
@@ -949,6 +995,7 @@ def main() -> int:
         platform=args.platform,
         container_scale=args.container_scale,
         levers_spec=args.levers,
+        source_root=args.source_root,
     )
     return 0
 

@@ -1,0 +1,1976 @@
+[
+ {
+  "repository": "Lightning-AI/litgpt",
+  "github": true,
+  "log": "",
+  "kb": 3256
+ },
+ {
+  "repository": "Mirascope/mirascope",
+  "github": true,
+  "log": "",
+  "kb": 11948
+ },
+ {
+  "repository": "Modalities/modalities",
+  "github": true,
+  "log": "",
+  "kb": 27629
+ },
+ {
+  "repository": "Quantum-Accelerators/quacc",
+  "github": true,
+  "log": "",
+  "kb": 67859
+ },
+ {
+  "repository": "The-OpenROAD-Project/OpenLane",
+  "github": true,
+  "log": "",
+  "kb": 20331
+ },
+ {
+  "repository": "adamchainz/django-mysql",
+  "github": true,
+  "log": "",
+  "kb": 1656
+ },
+ {
+  "repository": "adbar/trafilatura",
+  "github": true,
+  "log": "",
+  "kb": 183978
+ },
+ {
+  "repository": "ai4co/rl4co",
+  "github": true,
+  "log": "",
+  "kb": 13334
+ },
+ {
+  "repository": "ajenti/ajenti",
+  "github": true,
+  "log": "",
+  "kb": 12971
+ },
+ {
+  "repository": "alexhernandezgarcia/gflownet",
+  "github": true,
+  "log": "",
+  "kb": 16460
+ },
+ {
+  "repository": "alteryx/featuretools",
+  "github": true,
+  "log": "",
+  "kb": 6391
+ },
+ {
+  "repository": "amperser/proselint",
+  "github": true,
+  "log": "",
+  "kb": 3754
+ },
+ {
+  "repository": "andreidrang/python-rucaptcha",
+  "github": true,
+  "log": "",
+  "kb": 3166
+ },
+ {
+  "repository": "andrew-codechimp/HA-Battery-Notes",
+  "github": true,
+  "log": "",
+  "kb": 1232
+ },
+ {
+  "repository": "ansible/ansible-zuul-jobs",
+  "github": true,
+  "log": "",
+  "kb": 588
+ },
+ {
+  "repository": "ansible/molecule",
+  "github": true,
+  "log": "",
+  "kb": 16145
+ },
+ {
+  "repository": "apiflask/apiflask",
+  "github": true,
+  "log": "",
+  "kb": 1194
+ },
+ {
+  "repository": "artesiawater/hydropandas",
+  "github": true,
+  "log": "",
+  "kb": 61223
+ },
+ {
+  "repository": "asdf-format/asdf",
+  "github": true,
+  "log": "",
+  "kb": 5231
+ },
+ {
+  "repository": "asdf-format/asdf-standard",
+  "github": true,
+  "log": "",
+  "kb": 838
+ },
+ {
+  "repository": "astropy/extension-helpers",
+  "github": true,
+  "log": "",
+  "kb": 145
+ },
+ {
+  "repository": "astropy/photutils",
+  "github": true,
+  "log": "",
+  "kb": 4168
+ },
+ {
+  "repository": "astropy/regions",
+  "github": true,
+  "log": "",
+  "kb": 2275
+ },
+ {
+  "repository": "astropy/reproject",
+  "github": true,
+  "log": "",
+  "kb": 3419
+ },
+ {
+  "repository": "automl/neps",
+  "github": true,
+  "log": "",
+  "kb": 3767
+ },
+ {
+  "repository": "avaiga/taipy-core",
+  "github": true,
+  "log": "",
+  "kb": 2750
+ },
+ {
+  "repository": "basxsoftwareassociation/basxconnect",
+  "github": true,
+  "log": "",
+  "kb": 3517
+ },
+ {
+  "repository": "basxsoftwareassociation/bread",
+  "github": true,
+  "log": "",
+  "kb": 20556
+ },
+ {
+  "repository": "bdaiinstitute/spatialmath-python",
+  "github": true,
+  "log": "",
+  "kb": 12475
+ },
+ {
+  "repository": "beeware/briefcase",
+  "github": true,
+  "log": "",
+  "kb": 8049
+ },
+ {
+  "repository": "benadida/helios-server",
+  "github": true,
+  "log": "",
+  "kb": 4816
+ },
+ {
+  "repository": "benthayer/git-gud",
+  "github": true,
+  "log": "",
+  "kb": 4045
+ },
+ {
+  "repository": "bioimage-io/spec-bioimage-io",
+  "github": true,
+  "log": "",
+  "kb": 317508
+ },
+ {
+  "repository": "biothings/biothings.api",
+  "github": true,
+  "log": "",
+  "kb": 22072
+ },
+ {
+  "repository": "bitcart/bitcart",
+  "github": true,
+  "log": "",
+  "kb": 2440
+ },
+ {
+  "repository": "bmun/huxley",
+  "github": true,
+  "log": "",
+  "kb": 9166
+ },
+ {
+  "repository": "bottlecapdave/homeassistant-octopusenergy",
+  "github": true,
+  "log": "",
+  "kb": 3675
+ },
+ {
+  "repository": "bradenm/micropy-cli",
+  "github": true,
+  "log": "",
+  "kb": 87106
+ },
+ {
+  "repository": "bradyajohnston/molecularnodes",
+  "github": true,
+  "log": "",
+  "kb": 236884
+ },
+ {
+  "repository": "brainglobe/brainrender",
+  "github": true,
+  "log": "",
+  "kb": 16550
+ },
+ {
+  "repository": "brightway-lca/brightway2-io",
+  "github": true,
+  "log": "",
+  "kb": 64457
+ },
+ {
+  "repository": "calliope-project/calliope",
+  "github": true,
+  "log": "",
+  "kb": 5050
+ },
+ {
+  "repository": "camdavidsonpilon/lifelines",
+  "github": true,
+  "log": "",
+  "kb": 23030
+ },
+ {
+  "repository": "cantools/cantools",
+  "github": true,
+  "log": "",
+  "kb": 6900
+ },
+ {
+  "repository": "castagnait/plugin.video.netflix",
+  "github": true,
+  "log": "",
+  "kb": 5572
+ },
+ {
+  "repository": "catalystneuro/roiextractors",
+  "github": true,
+  "log": "",
+  "kb": 1141
+ },
+ {
+  "repository": "cclib/cclib",
+  "github": true,
+  "log": "",
+  "kb": 233591
+ },
+ {
+  "repository": "cda-tum/mqt-bench",
+  "github": true,
+  "log": "",
+  "kb": 21525
+ },
+ {
+  "repository": "censys/censys-python",
+  "github": true,
+  "log": "",
+  "kb": 1655
+ },
+ {
+  "repository": "centre-for-humanities-computing/dacy",
+  "github": true,
+  "log": "",
+  "kb": 11836
+ },
+ {
+  "repository": "ceph/ceph-ansible",
+  "github": true,
+  "log": "",
+  "kb": 2270
+ },
+ {
+  "repository": "cherrypy/cheroot",
+  "github": true,
+  "log": "",
+  "kb": 904
+ },
+ {
+  "repository": "ciscotestautomation/genieparser",
+  "github": true,
+  "log": "",
+  "kb": 100993
+ },
+ {
+  "repository": "cityofzion/neo3-boa",
+  "github": true,
+  "log": "",
+  "kb": 43697
+ },
+ {
+  "repository": "claritychallenge/clarity",
+  "github": true,
+  "log": "",
+  "kb": 123972
+ },
+ {
+  "repository": "cltk/cltk",
+  "github": true,
+  "log": "",
+  "kb": 4615
+ },
+ {
+  "repository": "columnflow/columnflow",
+  "github": true,
+  "log": "",
+  "kb": 3693
+ },
+ {
+  "repository": "commaai/comma10k",
+  "github": false,
+  "log": "git timed out after 300s",
+  "kb": null
+ },
+ {
+  "repository": "compserv/hknweb",
+  "github": true,
+  "log": "",
+  "kb": 38391
+ },
+ {
+  "repository": "conan-io/conan-package-tools",
+  "github": true,
+  "log": "",
+  "kb": 777
+ },
+ {
+  "repository": "conda-forge/staged-recipes",
+  "github": true,
+  "log": "",
+  "kb": 203
+ },
+ {
+  "repository": "convexengineering/gpkit",
+  "github": true,
+  "log": "",
+  "kb": 20554
+ },
+ {
+  "repository": "cookiecutter/cookiecutter",
+  "github": true,
+  "log": "",
+  "kb": 1078
+ },
+ {
+  "repository": "couchbase/cbmonitor",
+  "github": true,
+  "log": "",
+  "kb": 365
+ },
+ {
+  "repository": "cpcloud/protoletariat",
+  "github": true,
+  "log": "",
+  "kb": 260
+ },
+ {
+  "repository": "cvxgrp/cvxportfolio",
+  "github": true,
+  "log": "",
+  "kb": 58309
+ },
+ {
+  "repository": "dagshub/client",
+  "github": true,
+  "log": "",
+  "kb": 2012
+ },
+ {
+  "repository": "datactive/bigbang",
+  "github": true,
+  "log": "",
+  "kb": 39697
+ },
+ {
+  "repository": "datamol-io/datamol",
+  "github": true,
+  "log": "",
+  "kb": 12618
+ },
+ {
+  "repository": "datamol-io/graphium",
+  "github": true,
+  "log": "",
+  "kb": 15381
+ },
+ {
+  "repository": "dbiir/uer-py",
+  "github": true,
+  "log": "",
+  "kb": 102549
+ },
+ {
+  "repository": "de7vid/klingon-assistant-data",
+  "github": true,
+  "log": "",
+  "kb": 21046
+ },
+ {
+  "repository": "democracyclub/everyelection",
+  "github": true,
+  "log": "",
+  "kb": 11218
+ },
+ {
+  "repository": "democracyclub/uk-polling-stations",
+  "github": true,
+  "log": "",
+  "kb": 17926
+ },
+ {
+  "repository": "dfki-ric/phobos",
+  "github": true,
+  "log": "",
+  "kb": 13297
+ },
+ {
+  "repository": "diefenbach/django-lfs",
+  "github": true,
+  "log": "",
+  "kb": 25839
+ },
+ {
+  "repository": "diofant/diofant",
+  "github": true,
+  "log": "",
+  "kb": 11306
+ },
+ {
+  "repository": "dj-stripe/dj-stripe",
+  "github": true,
+  "log": "",
+  "kb": 2455
+ },
+ {
+  "repository": "dlubal-software/rfem_python_client",
+  "github": true,
+  "log": "",
+  "kb": 30920
+ },
+ {
+  "repository": "dnarayanan/powderday",
+  "github": true,
+  "log": "",
+  "kb": 19629
+ },
+ {
+  "repository": "dtmilano/androidviewclient",
+  "github": true,
+  "log": "",
+  "kb": 49206
+ },
+ {
+  "repository": "eastsidepreparatoryschool/epschedule",
+  "github": true,
+  "log": "",
+  "kb": 1295
+ },
+ {
+  "repository": "ecds/readux",
+  "github": true,
+  "log": "",
+  "kb": 27479
+ },
+ {
+  "repository": "econ-ark/hark",
+  "github": true,
+  "log": "",
+  "kb": 34959
+ },
+ {
+  "repository": "eggpi/citationhunt",
+  "github": true,
+  "log": "",
+  "kb": 1186
+ },
+ {
+  "repository": "elifesciences/elife-bot",
+  "github": true,
+  "log": "",
+  "kb": 280608
+ },
+ {
+  "repository": "ellmetha/django-machina",
+  "github": true,
+  "log": "",
+  "kb": 6745
+ },
+ {
+  "repository": "embeddings-benchmark/mteb",
+  "github": true,
+  "log": "",
+  "kb": 8685
+ },
+ {
+  "repository": "emdgroup/baybe",
+  "github": true,
+  "log": "",
+  "kb": 2606
+ },
+ {
+  "repository": "emi-group/evox",
+  "github": true,
+  "log": "",
+  "kb": 18351
+ },
+ {
+  "repository": "ethereum/py-evm",
+  "github": true,
+  "log": "",
+  "kb": 3064
+ },
+ {
+  "repository": "eylles/pywal16",
+  "github": true,
+  "log": "",
+  "kb": 420
+ },
+ {
+  "repository": "fabric/fabric",
+  "github": true,
+  "log": "",
+  "kb": 798
+ },
+ {
+  "repository": "facebookresearch/hydra",
+  "github": true,
+  "log": "",
+  "kb": 11932
+ },
+ {
+  "repository": "facebookresearch/nevergrad",
+  "github": true,
+  "log": "",
+  "kb": 43714
+ },
+ {
+  "repository": "fatal1ty/mashumaro",
+  "github": true,
+  "log": "",
+  "kb": 1144
+ },
+ {
+  "repository": "fedora-python/portingdb",
+  "github": true,
+  "log": "",
+  "kb": 11419
+ },
+ {
+  "repository": "fhempy/fhempy",
+  "github": true,
+  "log": "",
+  "kb": 14975
+ },
+ {
+  "repository": "fillll/reddit2telegram",
+  "github": true,
+  "log": "",
+  "kb": 1026
+ },
+ {
+  "repository": "fixator10/fixator10-cogs",
+  "github": true,
+  "log": "",
+  "kb": 6923
+ },
+ {
+  "repository": "flairNLP/fundus",
+  "github": true,
+  "log": "",
+  "kb": 13998
+ },
+ {
+  "repository": "flask-middleware/flask-security",
+  "github": false,
+  "log": "git fetch failed: fatal: remote error: upload-pack: not our ref ec70c1deac0530edfa8c4f4d1b545d0b5613af59",
+  "kb": null
+ },
+ {
+  "repository": "flav-io/flavio",
+  "github": true,
+  "log": "",
+  "kb": 4948
+ },
+ {
+  "repository": "folio-fse/folio_migration_tools",
+  "github": true,
+  "log": "",
+  "kb": 3826
+ },
+ {
+  "repository": "fonttools/fontbakery",
+  "github": true,
+  "log": "",
+  "kb": 133449
+ },
+ {
+  "repository": "gamesdonequick/donation-tracker",
+  "github": true,
+  "log": "",
+  "kb": 6385
+ },
+ {
+  "repository": "gazzolalab/miv-os",
+  "github": true,
+  "log": "",
+  "kb": 1749
+ },
+ {
+  "repository": "getnikola/plugins",
+  "github": true,
+  "log": "",
+  "kb": 4046
+ },
+ {
+  "repository": "getsentry/sentry-python",
+  "github": true,
+  "log": "",
+  "kb": 3129
+ },
+ {
+  "repository": "giampaolo/pyftpdlib",
+  "github": true,
+  "log": "",
+  "kb": 1176
+ },
+ {
+  "repository": "giskard-ai/giskard",
+  "github": true,
+  "log": "",
+  "kb": 126078
+ },
+ {
+  "repository": "google-deepmind/acme",
+  "github": true,
+  "log": "",
+  "kb": 5432
+ },
+ {
+  "repository": "google/trax",
+  "github": true,
+  "log": "",
+  "kb": 232885
+ },
+ {
+  "repository": "google/uncertainty-baselines",
+  "github": true,
+  "log": "",
+  "kb": 11977
+ },
+ {
+  "repository": "google/yapf",
+  "github": true,
+  "log": "",
+  "kb": 1394
+ },
+ {
+  "repository": "googlecloudplatform/gsutil",
+  "github": true,
+  "log": "",
+  "kb": 7025
+ },
+ {
+  "repository": "googlefonts/gftools",
+  "github": true,
+  "log": "",
+  "kb": 20961
+ },
+ {
+  "repository": "gpflow/gpflow",
+  "github": true,
+  "log": "",
+  "kb": 3141
+ },
+ {
+  "repository": "guardrails-ai/guardrails",
+  "github": true,
+  "log": "",
+  "kb": 55838
+ },
+ {
+  "repository": "gymrek-lab/TRTools",
+  "github": true,
+  "log": "",
+  "kb": 169773
+ },
+ {
+  "repository": "hackerspace-ntnu/website",
+  "github": true,
+  "log": "",
+  "kb": 125726
+ },
+ {
+  "repository": "has2k1/plotnine",
+  "github": true,
+  "log": "",
+  "kb": 17218
+ },
+ {
+  "repository": "hazyresearch/meerkat",
+  "github": true,
+  "log": "",
+  "kb": 49015
+ },
+ {
+  "repository": "hhursev/recipe-scrapers",
+  "github": true,
+  "log": "",
+  "kb": 158177
+ },
+ {
+  "repository": "hips/autograd",
+  "github": true,
+  "log": "",
+  "kb": 5622
+ },
+ {
+  "repository": "huggingface/datasets",
+  "github": true,
+  "log": "",
+  "kb": 8241
+ },
+ {
+  "repository": "ibm/ibmi-bob",
+  "github": true,
+  "log": "",
+  "kb": 7232
+ },
+ {
+  "repository": "idaholab/civet",
+  "github": true,
+  "log": "",
+  "kb": 5135
+ },
+ {
+  "repository": "ing-bank/probatus",
+  "github": true,
+  "log": "",
+  "kb": 19427
+ },
+ {
+  "repository": "injectivelabs/sdk-python",
+  "github": true,
+  "log": "",
+  "kb": 6118
+ },
+ {
+  "repository": "intake/intake",
+  "github": true,
+  "log": "",
+  "kb": 14920
+ },
+ {
+  "repository": "internetarchive/brozzler",
+  "github": true,
+  "log": "",
+  "kb": 5303
+ },
+ {
+  "repository": "iree-org/iree-llvm-sandbox",
+  "github": true,
+  "log": "",
+  "kb": 2589
+ },
+ {
+  "repository": "islandora/documentation",
+  "github": true,
+  "log": "",
+  "kb": 144697
+ },
+ {
+  "repository": "iss-mimic/mimic",
+  "github": true,
+  "log": "",
+  "kb": 1192112
+ },
+ {
+  "repository": "jacebrowning/memegen",
+  "github": true,
+  "log": "",
+  "kb": 236889
+ },
+ {
+  "repository": "jackdewinter/pymarkdown",
+  "github": true,
+  "log": "",
+  "kb": 11640
+ },
+ {
+  "repository": "jageo/lobsterpy",
+  "github": true,
+  "log": "",
+  "kb": 364382
+ },
+ {
+  "repository": "jaraco/inflect",
+  "github": true,
+  "log": "",
+  "kb": 357
+ },
+ {
+  "repository": "jaraco/irc",
+  "github": true,
+  "log": "",
+  "kb": 436
+ },
+ {
+  "repository": "jaraco/keyring",
+  "github": true,
+  "log": "",
+  "kb": 256
+ },
+ {
+  "repository": "jazzband/pip-tools",
+  "github": true,
+  "log": "",
+  "kb": 745
+ },
+ {
+  "repository": "jazzband/tablib",
+  "github": true,
+  "log": "",
+  "kb": 499
+ },
+ {
+  "repository": "jazzband/wagtailmenus",
+  "github": true,
+  "log": "",
+  "kb": 6420
+ },
+ {
+  "repository": "jmetal/jmetalpy",
+  "github": true,
+  "log": "",
+  "kb": 57391
+ },
+ {
+  "repository": "johnsnowlabs/nlu",
+  "github": true,
+  "log": "",
+  "kb": 795389
+ },
+ {
+  "repository": "jonlabelle/sublimejsprettier",
+  "github": true,
+  "log": "",
+  "kb": 2025
+ },
+ {
+  "repository": "juju/python-libjuju",
+  "github": true,
+  "log": "",
+  "kb": 41632
+ },
+ {
+  "repository": "jupyter/qtconsole",
+  "github": true,
+  "log": "",
+  "kb": 1353
+ },
+ {
+  "repository": "karlicoss/hpi",
+  "github": true,
+  "log": "",
+  "kb": 1329
+ },
+ {
+  "repository": "kedro-org/kedro",
+  "github": true,
+  "log": "",
+  "kb": 93389
+ },
+ {
+  "repository": "kerneltuner/kernel_tuner",
+  "github": true,
+  "log": "",
+  "kb": 5645
+ },
+ {
+  "repository": "kevinmusgrave/pytorch-metric-learning",
+  "github": true,
+  "log": "",
+  "kb": 81648
+ },
+ {
+  "repository": "lagolunatic/wwrando",
+  "github": true,
+  "log": "",
+  "kb": 5143
+ },
+ {
+  "repository": "langchain-ai/langgraph",
+  "github": true,
+  "log": "",
+  "kb": 137248
+ },
+ {
+  "repository": "lark-parser/lark",
+  "github": true,
+  "log": "",
+  "kb": 1632
+ },
+ {
+  "repository": "learning-and-intelligent-systems/predicators",
+  "github": true,
+  "log": "",
+  "kb": 170498
+ },
+ {
+  "repository": "lest/prometheus-rpm",
+  "github": true,
+  "log": "",
+  "kb": 196
+ },
+ {
+  "repository": "lhotse-speech/lhotse",
+  "github": true,
+  "log": "",
+  "kb": 33265
+ },
+ {
+  "repository": "libensemble/libensemble",
+  "github": true,
+  "log": "",
+  "kb": 13497
+ },
+ {
+  "repository": "librephotos/librephotos",
+  "github": true,
+  "log": "",
+  "kb": 7335
+ },
+ {
+  "repository": "lichess4545/heltour",
+  "github": true,
+  "log": "",
+  "kb": 12456
+ },
+ {
+  "repository": "lightkurve/lightkurve",
+  "github": true,
+  "log": "",
+  "kb": 93898
+ },
+ {
+  "repository": "litex-hub/litex-boards",
+  "github": true,
+  "log": "",
+  "kb": 3050
+ },
+ {
+  "repository": "llm-random/llm-random",
+  "github": true,
+  "log": "",
+  "kb": 1025
+ },
+ {
+  "repository": "lmcinnes/umap",
+  "github": true,
+  "log": "",
+  "kb": 109054
+ },
+ {
+  "repository": "lsstdesc/gcr-catalogs",
+  "github": true,
+  "log": "",
+  "kb": 2060
+ },
+ {
+  "repository": "m-o-a-t/moat-mqtt",
+  "github": true,
+  "log": "",
+  "kb": 547
+ },
+ {
+  "repository": "mad-lab-fau/biopsykit",
+  "github": true,
+  "log": "",
+  "kb": 146381
+ },
+ {
+  "repository": "mampfes/hacs_waste_collection_schedule",
+  "github": true,
+  "log": "",
+  "kb": 8183
+ },
+ {
+  "repository": "mansenfranzen/autodoc_pydantic",
+  "github": true,
+  "log": "",
+  "kb": 2154
+ },
+ {
+  "repository": "marimo-team/marimo",
+  "github": true,
+  "log": "",
+  "kb": 131807
+ },
+ {
+  "repository": "markqvist/reticulum",
+  "github": true,
+  "log": "",
+  "kb": 26207
+ },
+ {
+  "repository": "matchms/matchms",
+  "github": true,
+  "log": "",
+  "kb": 12301
+ },
+ {
+  "repository": "materialsproject/custodian",
+  "github": true,
+  "log": "",
+  "kb": 285378
+ },
+ {
+  "repository": "materialsvirtuallab/monty",
+  "github": true,
+  "log": "",
+  "kb": 530
+ },
+ {
+  "repository": "matthiasvalvekens/pyhanko",
+  "github": true,
+  "log": "",
+  "kb": 21194
+ },
+ {
+  "repository": "mause/duckdb_engine",
+  "github": true,
+  "log": "",
+  "kb": 392
+ },
+ {
+  "repository": "mdolab/openaerostruct",
+  "github": true,
+  "log": "",
+  "kb": 11605
+ },
+ {
+  "repository": "mdolab/pygeo",
+  "github": true,
+  "log": "",
+  "kb": 72712
+ },
+ {
+  "repository": "meltano/sdk",
+  "github": true,
+  "log": "",
+  "kb": 5878
+ },
+ {
+  "repository": "menpo/menpo",
+  "github": true,
+  "log": "",
+  "kb": 4785
+ },
+ {
+  "repository": "mercedes-benz/odxtools",
+  "github": true,
+  "log": "",
+  "kb": 1660
+ },
+ {
+  "repository": "mflowgen/mflowgen",
+  "github": true,
+  "log": "",
+  "kb": 19024
+ },
+ {
+  "repository": "microsoft/torchgeo",
+  "github": true,
+  "log": "",
+  "kb": 157849
+ },
+ {
+  "repository": "microsoftgraph/msgraph-sdk-python-core",
+  "github": true,
+  "log": "",
+  "kb": 234
+ },
+ {
+  "repository": "mirageoscience/geoapps",
+  "github": true,
+  "log": "",
+  "kb": 422512
+ },
+ {
+  "repository": "miurahr/aqtinstall",
+  "github": true,
+  "log": "",
+  "kb": 4439
+ },
+ {
+  "repository": "mne-tools/mne-lsl",
+  "github": true,
+  "log": "",
+  "kb": 1815
+ },
+ {
+  "repository": "mollie/mollie-api-python",
+  "github": true,
+  "log": "",
+  "kb": 762
+ },
+ {
+  "repository": "mopidy/mopidy",
+  "github": true,
+  "log": "",
+  "kb": 2051
+ },
+ {
+  "repository": "mov-cli/mov-cli",
+  "github": true,
+  "log": "",
+  "kb": 342
+ },
+ {
+  "repository": "mpmath/mpmath",
+  "github": true,
+  "log": "",
+  "kb": 5688
+ },
+ {
+  "repository": "nabla-ntnu/nablaweb",
+  "github": true,
+  "log": "",
+  "kb": 4581
+ },
+ {
+  "repository": "nakagami/pyfirebirdsql",
+  "github": true,
+  "log": "",
+  "kb": 909
+ },
+ {
+  "repository": "naomiproject/naomi",
+  "github": true,
+  "log": "",
+  "kb": 4727
+ },
+ {
+  "repository": "neptune-ai/neptune-client",
+  "github": true,
+  "log": "",
+  "kb": 2019
+ },
+ {
+  "repository": "netbox-community/netbox",
+  "github": true,
+  "log": "",
+  "kb": 67179
+ },
+ {
+  "repository": "neurogym/neurogym",
+  "github": true,
+  "log": "",
+  "kb": 5672
+ },
+ {
+  "repository": "nextcord/nextcord",
+  "github": true,
+  "log": "",
+  "kb": 18804
+ },
+ {
+  "repository": "nixtla/neuralforecast",
+  "github": true,
+  "log": "",
+  "kb": 49704
+ },
+ {
+  "repository": "nonebot/nonebot2",
+  "github": true,
+  "log": "",
+  "kb": 5974
+ },
+ {
+  "repository": "nrbnlulu/strawberry-django-auth",
+  "github": true,
+  "log": "",
+  "kb": 17898
+ },
+ {
+  "repository": "nschloe/meshio",
+  "github": true,
+  "log": "",
+  "kb": 3107
+ },
+ {
+  "repository": "numba/llvmlite",
+  "github": true,
+  "log": "",
+  "kb": 1476
+ },
+ {
+  "repository": "oarriaga/paz",
+  "github": true,
+  "log": "",
+  "kb": 2359
+ },
+ {
+  "repository": "online-ml/river",
+  "github": true,
+  "log": "",
+  "kb": 20656
+ },
+ {
+  "repository": "open-cas/open-cas-linux",
+  "github": true,
+  "log": "",
+  "kb": 3746
+ },
+ {
+  "repository": "open-power/op-test",
+  "github": true,
+  "log": "",
+  "kb": 72948
+ },
+ {
+  "repository": "open-pulse/openpulse",
+  "github": true,
+  "log": "",
+  "kb": 269824
+ },
+ {
+  "repository": "open-sdg/sdg-translations",
+  "github": true,
+  "log": "",
+  "kb": 26252
+ },
+ {
+  "repository": "openml/automlbenchmark",
+  "github": true,
+  "log": "",
+  "kb": 16780
+ },
+ {
+  "repository": "openqasm/openqasm",
+  "github": true,
+  "log": "",
+  "kb": 3779
+ },
+ {
+  "repository": "openreview/openreview-py",
+  "github": true,
+  "log": "",
+  "kb": 13642
+ },
+ {
+  "repository": "ourresearch/oadoi",
+  "github": true,
+  "log": "",
+  "kb": 31770
+ },
+ {
+  "repository": "owid/etl",
+  "github": true,
+  "log": "",
+  "kb": 64464
+ },
+ {
+  "repository": "pajbot/pajbot",
+  "github": true,
+  "log": "",
+  "kb": 2322
+ },
+ {
+  "repository": "pasqal-io/pulser",
+  "github": true,
+  "log": "",
+  "kb": 45719
+ },
+ {
+  "repository": "pastas/pastas",
+  "github": true,
+  "log": "",
+  "kb": 137783
+ },
+ {
+  "repository": "peering-manager/peering-manager",
+  "github": true,
+  "log": "",
+  "kb": 34286
+ },
+ {
+  "repository": "pgeu/pgeu-system",
+  "github": true,
+  "log": "",
+  "kb": 9903
+ },
+ {
+  "repository": "piccolo-orm/piccolo",
+  "github": true,
+  "log": "",
+  "kb": 2588
+ },
+ {
+  "repository": "pika/pika",
+  "github": true,
+  "log": "",
+  "kb": 1960
+ },
+ {
+  "repository": "piskvorky/smart_open",
+  "github": true,
+  "log": "",
+  "kb": 741
+ },
+ {
+  "repository": "plasmapy/plasmapy",
+  "github": true,
+  "log": "",
+  "kb": 31527
+ },
+ {
+  "repository": "platformio/platformio-core",
+  "github": true,
+  "log": "",
+  "kb": 1995
+ },
+ {
+  "repository": "plotly/dash-bio",
+  "github": true,
+  "log": "",
+  "kb": 333977
+ },
+ {
+  "repository": "pokepetter/ursina",
+  "github": true,
+  "log": "",
+  "kb": 26909
+ },
+ {
+  "repository": "posit-dev/great-tables",
+  "github": true,
+  "log": "",
+  "kb": 28926
+ },
+ {
+  "repository": "postgrespro/mamonsu",
+  "github": true,
+  "log": "",
+  "kb": 36960
+ },
+ {
+  "repository": "pretalx/pretalx",
+  "github": true,
+  "log": "",
+  "kb": 26068
+ },
+ {
+  "repository": "project-improv/improv",
+  "github": true,
+  "log": "",
+  "kb": 1919
+ },
+ {
+  "repository": "psf/pyperf",
+  "github": true,
+  "log": "",
+  "kb": 1132
+ },
+ {
+  "repository": "pureqml/qmlcore",
+  "github": true,
+  "log": "",
+  "kb": 18884
+ },
+ {
+  "repository": "pydmd/pydmd",
+  "github": true,
+  "log": "",
+  "kb": 467186
+ },
+ {
+  "repository": "pylabrobot/pylabrobot",
+  "github": true,
+  "log": "",
+  "kb": 48628
+ },
+ {
+  "repository": "pymanopt/pymanopt",
+  "github": true,
+  "log": "",
+  "kb": 1300
+ },
+ {
+  "repository": "pypa/distutils",
+  "github": true,
+  "log": "",
+  "kb": 4385
+ },
+ {
+  "repository": "pypa/pip",
+  "github": true,
+  "log": "",
+  "kb": 23928
+ },
+ {
+  "repository": "pypa/twine",
+  "github": true,
+  "log": "",
+  "kb": 722
+ },
+ {
+  "repository": "pypose/pypose",
+  "github": true,
+  "log": "",
+  "kb": 3039
+ },
+ {
+  "repository": "pysmt/pysmt",
+  "github": true,
+  "log": "",
+  "kb": 3934
+ },
+ {
+  "repository": "pysnmp/pysnmp",
+  "github": true,
+  "log": "",
+  "kb": 2495
+ },
+ {
+  "repository": "pytest-dev/pytest-xdist",
+  "github": true,
+  "log": "",
+  "kb": 494
+ },
+ {
+  "repository": "python-control/python-control",
+  "github": true,
+  "log": "",
+  "kb": 16288
+ },
+ {
+  "repository": "python-markdown/markdown",
+  "github": true,
+  "log": "",
+  "kb": 2387
+ },
+ {
+  "repository": "python-openapi/openapi-core",
+  "github": true,
+  "log": "",
+  "kb": 1312
+ },
+ {
+  "repository": "python-poetry/poetry",
+  "github": true,
+  "log": "",
+  "kb": 11993
+ },
+ {
+  "repository": "python/importlib_metadata",
+  "github": true,
+  "log": "",
+  "kb": 245
+ },
+ {
+  "repository": "pyvisa/pyvisa",
+  "github": true,
+  "log": "",
+  "kb": 1284
+ },
+ {
+  "repository": "qiboteam/qibo",
+  "github": true,
+  "log": "",
+  "kb": 53311
+ },
+ {
+  "repository": "qiboteam/qibocal",
+  "github": true,
+  "log": "",
+  "kb": 17531
+ },
+ {
+  "repository": "qiboteam/qibolab",
+  "github": true,
+  "log": "",
+  "kb": 10936
+ },
+ {
+  "repository": "qiita-spots/qiita",
+  "github": true,
+  "log": "",
+  "kb": 51775
+ },
+ {
+  "repository": "quantumjot/btrack",
+  "github": true,
+  "log": "",
+  "kb": 1615
+ },
+ {
+  "repository": "r-anime/holo",
+  "github": true,
+  "log": "",
+  "kb": 1733
+ },
+ {
+  "repository": "rcmdnk/homebrew-file",
+  "github": true,
+  "log": "",
+  "kb": 725
+ },
+ {
+  "repository": "rdmorganiser/rdmo",
+  "github": true,
+  "log": "",
+  "kb": 8340
+ },
+ {
+  "repository": "reagento/adaptix",
+  "github": true,
+  "log": "",
+  "kb": 2612
+ },
+ {
+  "repository": "revoxhere/duino-coin",
+  "github": true,
+  "log": "",
+  "kb": 9064
+ },
+ {
+  "repository": "rl-institut/spice_ev",
+  "github": true,
+  "log": "",
+  "kb": 2668
+ },
+ {
+  "repository": "rlberry-py/rlberry",
+  "github": true,
+  "log": "",
+  "kb": 12555
+ },
+ {
+  "repository": "robbievanleeuwen/section-properties",
+  "github": true,
+  "log": "",
+  "kb": 6473
+ },
+ {
+  "repository": "roboflow/supervision",
+  "github": true,
+  "log": "",
+  "kb": 48459
+ },
+ {
+  "repository": "robotframework/robotframework",
+  "github": true,
+  "log": "",
+  "kb": 20068
+ },
+ {
+  "repository": "rollbar/pyrollbar",
+  "github": true,
+  "log": "",
+  "kb": 563
+ },
+ {
+  "repository": "roshan-research/hazm",
+  "github": true,
+  "log": "",
+  "kb": 15978
+ },
+ {
+  "repository": "rstcheck/rstcheck",
+  "github": true,
+  "log": "",
+  "kb": 237
+ },
+ {
+  "repository": "rubisco-sfa/ilamb",
+  "github": true,
+  "log": "",
+  "kb": 1267
+ },
+ {
+  "repository": "sassoftware/python-sasctl",
+  "github": true,
+  "log": "",
+  "kb": 49913
+ },
+ {
+  "repository": "sasview/sasview",
+  "github": true,
+  "log": "",
+  "kb": 173060
+ },
+ {
+  "repository": "scikit-rf/scikit-rf",
+  "github": true,
+  "log": "",
+  "kb": 110103
+ },
+ {
+  "repository": "scitools/iris-grib",
+  "github": true,
+  "log": "",
+  "kb": 11685
+ },
+ {
+  "repository": "scott-griffiths/bitstring",
+  "github": true,
+  "log": "",
+  "kb": 1581
+ },
+ {
+  "repository": "scylladb/sphinx-scylladb-theme",
+  "github": true,
+  "log": "",
+  "kb": 7845
+ },
+ {
+  "repository": "simplistix/testfixtures",
+  "github": true,
+  "log": "",
+  "kb": 863
+ },
+ {
+  "repository": "skmin-lab/unixmd",
+  "github": true,
+  "log": "",
+  "kb": 7383
+ },
+ {
+  "repository": "skrub-data/skrub",
+  "github": true,
+  "log": "",
+  "kb": 13800
+ },
+ {
+  "repository": "smarr/rebench",
+  "github": true,
+  "log": "",
+  "kb": 737
+ },
+ {
+  "repository": "spacetelescope/pysiaf",
+  "github": true,
+  "log": "",
+  "kb": 198789
+ },
+ {
+  "repository": "spec-first/connexion",
+  "github": true,
+  "log": "",
+  "kb": 4997
+ },
+ {
+  "repository": "sphinx-contrib/spelling",
+  "github": true,
+  "log": "",
+  "kb": 178
+ },
+ {
+  "repository": "sphinx-gallery/sphinx-gallery",
+  "github": true,
+  "log": "",
+  "kb": 1993
+ },
+ {
+  "repository": "spotify/luigi",
+  "github": true,
+  "log": "",
+  "kb": 7374
+ },
+ {
+  "repository": "stan-dev/cmdstanpy",
+  "github": true,
+  "log": "",
+  "kb": 67474
+ },
+ {
+  "repository": "starsimhub/starsim",
+  "github": true,
+  "log": "",
+  "kb": 1577
+ },
+ {
+  "repository": "stopstalk/stopstalk-deployment",
+  "github": true,
+  "log": "",
+  "kb": 77726
+ },
+ {
+  "repository": "strinking/futaba",
+  "github": true,
+  "log": "",
+  "kb": 1614
+ },
+ {
+  "repository": "sublimelinter/sublimelinter",
+  "github": true,
+  "log": "",
+  "kb": 2812
+ },
+ {
+  "repository": "tcprescott/sahasrahbot",
+  "github": true,
+  "log": "",
+  "kb": 7205
+ },
+ {
+  "repository": "tefra/xsdata",
+  "github": true,
+  "log": "",
+  "kb": 2318
+ },
+ {
+  "repository": "tensorflow/model-analysis",
+  "github": true,
+  "log": "",
+  "kb": 14142
+ },
+ {
+  "repository": "terminusdb/terminusdb-client-python",
+  "github": true,
+  "log": "",
+  "kb": 885
+ },
+ {
+  "repository": "terrapower/armi",
+  "github": true,
+  "log": "",
+  "kb": 17387
+ },
+ {
+  "repository": "textext/textext",
+  "github": true,
+  "log": "",
+  "kb": 12688
+ },
+ {
+  "repository": "theislab/cellrank",
+  "github": true,
+  "log": "",
+  "kb": 33995
+ },
+ {
+  "repository": "theislab/scvelo",
+  "github": true,
+  "log": "",
+  "kb": 98186
+ },
+ {
+  "repository": "thouska/spotpy",
+  "github": true,
+  "log": "",
+  "kb": 46533
+ },
+ {
+  "repository": "timbrel/gitsavvy",
+  "github": true,
+  "log": "",
+  "kb": 2034
+ },
+ {
+  "repository": "tishka17/aiogram_dialog",
+  "github": true,
+  "log": "",
+  "kb": 4331
+ },
+ {
+  "repository": "tmux-python/tmuxp",
+  "github": true,
+  "log": "",
+  "kb": 2360
+ },
+ {
+  "repository": "tommadness/kh2randomizer",
+  "github": true,
+  "log": "",
+  "kb": 83972
+ },
+ {
+  "repository": "tortoise/tortoise-orm",
+  "github": true,
+  "log": "",
+  "kb": 2359
+ },
+ {
+  "repository": "transientskp/tkp",
+  "github": true,
+  "log": "",
+  "kb": 2836
+ },
+ {
+  "repository": "ubernostrum/django-registration",
+  "github": true,
+  "log": "",
+  "kb": 511
+ },
+ {
+  "repository": "ucoproject/uco",
+  "github": true,
+  "log": "",
+  "kb": 1085
+ },
+ {
+  "repository": "ukri-excalibur/excalibur-tests",
+  "github": true,
+  "log": "",
+  "kb": 101683
+ },
+ {
+  "repository": "uploadcare/pyuploadcare",
+  "github": true,
+  "log": "",
+  "kb": 4429
+ },
+ {
+  "repository": "uriyyo/fastapi-pagination",
+  "github": true,
+  "log": "",
+  "kb": 2818
+ },
+ {
+  "repository": "vacanza/python-holidays",
+  "github": true,
+  "log": "",
+  "kb": 38864
+ },
+ {
+  "repository": "valory-xyz/trader",
+  "github": true,
+  "log": "",
+  "kb": 8546
+ },
+ {
+  "repository": "vertica/verticapy",
+  "github": true,
+  "log": "",
+  "kb": 621540
+ },
+ {
+  "repository": "vespa-engine/pyvespa",
+  "github": true,
+  "log": "",
+  "kb": 41078
+ },
+ {
+  "repository": "vkbottle/vkbottle",
+  "github": true,
+  "log": "",
+  "kb": 1057
+ },
+ {
+  "repository": "webcomics/dosage",
+  "github": true,
+  "log": "",
+  "kb": 3128
+ },
+ {
+  "repository": "wilcoxjay/mypyvy",
+  "github": true,
+  "log": "",
+  "kb": 2046
+ },
+ {
+  "repository": "wind-python/windpowerlib",
+  "github": true,
+  "log": "",
+  "kb": 1732
+ },
+ {
+  "repository": "wireless-innovation-forum/spectrum-access-system",
+  "github": true,
+  "log": "",
+  "kb": 339099
+ },
+ {
+  "repository": "wolph/python-progressbar",
+  "github": true,
+  "log": "",
+  "kb": 515
+ },
+ {
+  "repository": "wpi-lnl/lnldb",
+  "github": true,
+  "log": "",
+  "kb": 101806
+ },
+ {
+  "repository": "xknx/xknx",
+  "github": true,
+  "log": "",
+  "kb": 3688
+ },
+ {
+  "repository": "yourlabs/django-autocomplete-light",
+  "github": true,
+  "log": "",
+  "kb": 1268
+ },
+ {
+  "repository": "yt-project/unyt",
+  "github": true,
+  "log": "",
+  "kb": 3408
+ },
+ {
+  "repository": "yubico/yubikey-manager",
+  "github": true,
+  "log": "",
+  "kb": 1372
+ },
+ {
+  "repository": "zappa/zappa",
+  "github": true,
+  "log": "",
+  "kb": 2173
+ },
+ {
+  "repository": "zostera/django-bootstrap3",
+  "github": true,
+  "log": "",
+  "kb": 240
+ },
+ {
+  "repository": "zostera/django-bootstrap4",
+  "github": true,
+  "log": "",
+  "kb": 253
+ },
+ {
+  "repository": "zostera/django-bootstrap5",
+  "github": true,
+  "log": "",
+  "kb": 304
+ },
+ {
+  "repository": "zulip/python-zulip-api",
+  "github": true,
+  "log": "",
+  "kb": 6819
+ }
+]
