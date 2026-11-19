@@ -47,7 +47,7 @@
   doi       = {10.1145/3510003.3510127}
 }
 
-% TODO verify: that this paper is the tool the advisor's outline calls "PyCRE" (name taken from the outline; the title does not contain it).
+% Verified 2026-11-17 in the arXiv preprint 2201.07029 (abstract and Sections 2-4): the tool of this ICSE 2022 paper is called PyCRE; venue, pages and ISBN match Crossref. Evaluated on the full Gistable set (10,250 snippets), HG2.9K not mentioned in the preprint (summary-level, TODO verify).
 @inproceedings{cheng2022pycre,
   author    = {Cheng, Wei and Zhu, Xiangrong and Hu, Wei},
   title     = {Conflict-aware inference of {Python} compatible runtime environments with domain knowledge graph},
@@ -59,6 +59,8 @@
 }
 
 % The tool is called ReadPyE. Mapping verified: the reference list of PLLM (arXiv:2501.16191, ref. [10]) cites exactly this paper for ReadPyE.
+% 2026-11-17: the full text was not accessible (IEEE page empty). The abstract (Semantic Scholar copy) confirms the tool name ReadPyE, the naming-similarity measure, the optimisation formulation and the iterative validation with exception templates.
+% TODO verify: ReadPyE's OWN HG2.9K figure (cite only the value measured by PLLM, arXiv:2501.16191 Table III, as 'measured by PLLM').
 @article{cheng2024revisiting,
   author  = {Cheng, Wei and Hu, Wei and Ma, Xiaoxing},
   title   = {Revisiting Knowledge-Based Inference of {Python} Runtime Environments: A Realistic and Adaptive Approach},
@@ -71,7 +73,7 @@
 }
 
 % The tool is called SnifferDog in the task description.
-% TODO verify: that the tool name "SnifferDog" appears in this paper (arXiv/Crossref confirm title, authors, venue, pages).
+% Verified 2026-11-17 in the arXiv PDF (2103.02959): the tool is called SnifferDog; authors Wang, Li, Zeller; arXiv comment says ICSE 2021.
 @inproceedings{wang2021sniffer,
   author    = {Wang, Jiawei and Li, Li and Zeller, Andreas},
   title     = {Restoring Execution Environments of {Jupyter} Notebooks},
@@ -85,6 +87,7 @@
 
 % Preprint (v2, 16 Oct 2025). The vision document says it was accepted at the AgenticSE workshop at ASE 2025; not verified in the paper text.
 % TODO verify: workshop acceptance / whether a peer-reviewed version exists before submission.
+% 2026-11-17 re-read (arXiv v2 HTML): no venue is stated anywhere in the paper; the hybrid / complementarity statements are in Section VII (Conclusion and Future Work). Section VI (threats to validity) is deliberately not cited.
 @misc{bartlett2025lastdependency,
   author       = {Bartlett, Antony and Liem, Cynthia and Panichella, Annibale},
   title        = {The Last Dependency Crusade: Solving {Python} Dependency Conflicts with {LLMs}},
@@ -94,6 +97,7 @@
 
 % Verified in the paper (v4): 39th NeurIPS (2025) conference paper; 86.0% success on 420 Python repositories WITH unit tests; 'first LLM-based agent' is the authors' own claim.
 % NOT verified: the 'spotlight' status stated in the research note -- do not state it. TODO verify if wanted.
+% 2026-11-17 re-read of arXiv v4 (abstract, Sections 3, 4.1-4.4): success = the repository's tests can be executed (not that they pass); 420 repositories with unit tests; the front matter read shows no venue (only a NeurIPS checklist heading). TODO verify the NeurIPS 2025 claim above against the PDF.
 @misc{hu2025repo2run,
   author       = {Hu, Ruida and Peng, Chao and Wang, Xinchen and Xu, Junjielong and Gao, Cuiyun},
   title        = {{Repo2Run}: Automated Building Executable Environment for Code Repository at Scale},
@@ -103,6 +107,7 @@
 
 % The PDF header says 'Published as a conference paper at ICLR 2025'; the vision document says workshop DL4C at ICLR 2025.
 % TODO verify the exact venue (main conference vs. workshop) before citing it as peer-reviewed.
+% 2026-11-17 re-read of arXiv v1 HTML: 329 Python and 665 JVM repositories, best Python result 6.69% (Bash Agent, GPT-4o, Table 1), Python success measured with pyright (missing imports) -- no tests are run. The HTML front matter shows no venue.
 @misc{eliseeva2025envbench,
   author       = {Eliseeva, Aleksandra and Kovrigin, Alexander and Kholkin, Ilia and Bogomolov, Egor and Zharov, Yaroslav},
   title        = {{EnvBench}: A Benchmark for Automated Environment Setup},
@@ -111,6 +116,8 @@
 }
 
 % The research note quotes 94% / REQBench 2,095 cases / PyEGo ~37%; these were not verified. TODO verify before use.
+% 2026-11-17: title, authors, abstract-level description, REQBench (2,095 scenarios) and the introduction's rates (PCREQ 94.03%, PyEGo 37.02%, ReadPyE 37.16%) read in the arXiv HTML; results sections not read.
+% TODO verify: venue -- the arXiv abstract page says 'Accepted by ACM Transactions on Software Engineering and Methodology', the HTML header says 'JACM'; and what the 'repair report' contains.
 @misc{lei2025pcreq,
   author       = {Lei, Huashan and Xiao, Guanping and Liu, Yepang and Zheng, Zheng},
   title        = {{PCREQ}: Automated Inference of Compatible Requirements for {Python} Third-party Library Upgrades},
@@ -118,6 +125,7 @@
   year         = {2025}
 }
 
+% 2026-11-17: only the Crossref record (title, authors, ASE 2021, pages 240-252) was confirmed; IEEE page empty. TODO verify: tool name ('Relancer' is the research note's name for it, unconfirmed), method, data set and results are NOT described in the thesis.
 @inproceedings{zhu2021relancer,
   author    = {Zhu, Chenguang and Saha, Ripon K. and Prasad, Mukul R. and Khurshid, Sarfraz},
   title     = {Restoring the Executability of {Jupyter} Notebooks by Automatic Upgrade of Deprecated {APIs}},
@@ -201,4 +209,41 @@
   year    = {2004},
   pages   = {50--80},
   doi     = {10.1518/hfes.46.1.50_30392}
+}
+
+% --- Added for Chapter 3 (State of the Art), 2026-11-17 ---
+
+% Gistable: details taken from arXiv:1808.04919 (abstract, Sections IV-V). Venue ICSME 2018 is taken from the reference list of the DockerizeMe paper.
+% TODO verify: pages and DOI of the ICSME 2018 version (the arXiv page shows no journal reference).
+@inproceedings{horton2018gistable,
+  author    = {Horton, Eric and Parnin, Chris},
+  title     = {Gistable: Evaluating the Executability of {Python} Code Snippets on {GitHub}},
+  booktitle = {Proc. IEEE Int. Conf. Software Maintenance and Evolution (ICSME)},
+  year      = {2018},
+  note      = {arXiv:1808.04919}
+}
+
+% pipreqs has no academic paper known to us (README read 2026-11-17). TODO verify: year/maintainers; the repository text says it looks for maintainers.
+@misc{pipreqs,
+  title        = {pipreqs: Generate requirements.txt file for any project based on imports},
+  howpublished = {GitHub repository, \url{https://github.com/bndr/pipreqs}},
+  note         = {Accessed 2026-11-17}
+}
+
+% KGCompass: abs page title in v3 is lower-case; seven authors as on the abs page. It is about software issue repair (SWE-bench Lite), not dependency repair.
+% TODO verify: venue (none printed on the arXiv pages read).
+@misc{yang2025kgcompass,
+  author       = {Yang, Boyang and Ren, Jiadong and Jin, Shunfu and Liu, Yang and Liu, Feng and Le, Bach and Tian, Haoye},
+  title        = {Enhancing Repository-Level Software Repair via Repository-Aware Knowledge Graphs},
+  howpublished = {arXiv preprint arXiv:2503.21710},
+  year         = {2025}
+}
+
+% TerraRepair: Terraform (infrastructure-as-code) repair; arXiv v1 submitted 13 Jul 2026.
+% TODO verify: the arXiv comments field says accepted at ESEM 2026, but the event fields on the HTML page still read 'TBD'.
+@misc{mengistu2026terrarepair,
+  author       = {Mengistu, Minase Mekete and Di Rocco, Juri and Nguyen, Phuong T. and Di Ruscio, Davide},
+  title        = {{TerraRepair}: A Tool-Grounded {LLM} Agent for Infrastructure-as-Code Repair},
+  howpublished = {arXiv preprint arXiv:2607.11390},
+  year         = {2026}
 }
